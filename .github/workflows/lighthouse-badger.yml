@@ -22,12 +22,13 @@ env:
 
 # TRIGGERS
 on:
-  page_build:
+  # Disabled - requires token that's not configured
+  # page_build:
   # schedule: # Check your schedule here => https://crontab.guru/
   #   - cron: '55 23 * * 0' # e.g. every Sunday at 23:55
   #
   # THAT'S IT; YOU'RE DONE;
-  workflow_dispatch:
+  # workflow_dispatch:
 
 ########################################################################
 # THAT'S IT; YOU DON'T HAVE TO DEFINE ANYTHING IN THE FOLLOWING
