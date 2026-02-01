@@ -29,8 +29,6 @@ latest_posts:
 
 > "You are under no obligation to remain the same person you were a year ago, a month ago, or even a day ago. You are here to create yourself, continuously." — Richard Feynman
 
-
-
 I was born in Costa Rica and raised in the coffee-plantation countryside. I learned to harvest coffee before I started school. I learned early what resilience and patience look like in real life. Pick the ripe ones, leave the green ones, come back tomorrow. From age five to twenty-three, I spent three months each year in the fields, 5 AM to 4 PM, no matter the weather. You show up. You do the work.
 
 I carried that same attitude into learning. If something makes me curious, I follow it until it makes sense.
