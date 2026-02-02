@@ -23,6 +23,13 @@ ninja.data = [{
           handler: () => {
             window.location.href = "/publications/";
           },
+        },{id: "nav-patents",
+          title: "patents",
+          description: "Patents and intellectual property",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/patents/";
+          },
         },{id: "projects-project-1",
           title: 'project 1',
           description: "with background image",
