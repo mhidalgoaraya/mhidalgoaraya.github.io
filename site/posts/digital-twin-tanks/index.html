@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How many sensors does a plant need? · Marco Hidalgo</title>
+<meta name="description" content="Case study: a digital twin of two cascaded water tanks. One physical sensor, a virtual sensor with honest uncertainty, overflow forecasts, and plain-language fault diagnosis.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="name" href="../../">Marco Hidalgo</a>
+    <nav class="menu" aria-label="Main">
+      <a href="../../">Blog</a>
+      <a href="../../about.html">About</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap article">
+  <header>
+    <div class="meta"><span>Case study</span><span>October 2026</span><span>7 min read</span></div>
+    <h1>How many sensors does a plant need?</h1>
+    <p class="lede">A digital twin of two water tanks: one physical sensor, a virtual one with honest error bars, overflow warnings, and a model that tells the crew which part is wearing out.</p>
+  </header>
+
+  <div class="prose">
+    <p class="summary">A physics-based model of two cascaded tanks forecasts the water level from the pump signal alone, within 2 % of full scale, and states how sure it is. It replaces a second sensor for forecasting. It also turns sensor data into plain findings such as "lower outlet partly clogged", which no black-box model can give.</p>
+
+    <h2>The design question</h2>
+    <p>Picture two reservoirs in cascade. A pump fills the upper one, it drains into the lower one, and the lower one drains back to a supply tank. Food and beverage plants, water utilities and chemical lines are full of setups like this: buffer tanks, mixing vessels, settling basins. Two things must never happen. A tank must not overflow, because spilled product means loss, cleaning and sometimes fines. The pump must not run dry, because that damages it.</p>
+    <p>So the engineer has to decide: where do the sensors go, and how many do we buy? A level sensor on every tank costs money to buy, wire, calibrate and maintain. Fewer sensors means part of the plant is invisible.</p>
+
+    <h2>One sensor and a virtual one</h2>
+    <p>This case study uses a public benchmark: a real two-tank rig with one capacitive level sensor, on the lower tank only. The upper tank is never measured. The model starts from physics everyone learns in school: water flows out of a hole at a speed set by the water height above it (Torricelli's law), what goes in must come out, and a full tank overflows. To that it adds a few effects the data revealed, such as the lower tank overflowing just above the point where the sensor saturates.</p>
+    <p>From the pump signal and the one sensor, the model keeps a running estimate of both water levels, including the unmeasured one. It is a virtual sensor, and like a real sensor it comes with an error bar.</p>
+
+    <h2>How good is it?</h2>
+    <p>On the benchmark's test record, the model forecasts the lower-tank level from the pump signal alone, with no level measurements after the first few minutes. Its typical error is 0.198 V on a 10 V scale. Its 95 % range contains the real level 93.5 % of the time, and 98.7 % of the time during overflow, which is when it matters most.</p>
+
+    <div class="table-wrap wide">
+      <table>
+        <thead><tr><th>Method</th><th>Type</th><th>Forecast error (V)</th><th>Says how sure it is</th></tr></thead>
+        <tbody>
+          <tr><td>Physics model + black-box correction (Worden et al., 2018)</td><td>grey box</td><td>0.191</td><td>no</td></tr>
+          <tr class="ours"><td>This model</td><td>physics + probabilistic inference</td><td>0.198</td><td>yes, checked</td></tr>
+          <tr><td>Physics model alone (Worden et al., 2018)</td><td>grey box</td><td>≈ 0.28</td><td>no</td></tr>
+          <tr><td>Continuous-time SUBNET</td><td>deep state-space network</td><td>0.306</td><td>no</td></tr>
+          <tr><td>GRU</td><td>recurrent neural network</td><td>0.396</td><td>no</td></tr>
+          <tr><td>Polynomial NARX</td><td>black box</td><td>0.413</td><td>no</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">Open-loop forecast error on the test record of the Cascaded Tanks benchmark (Schoukens et al.). Other results as reported in Champneys et al. (2024).</p>
+    <p>The best published result is 0.007 V better, a difference smaller than the sensor's own noise. The deep networks trained on the same 1024 samples are 50 to 100 % worse, and their errors pile up in the rare overflow episodes, where they matter most.</p>
+
+    <h2>Is a second sensor worth buying?</h2>
+    <p>With the model in hand, the question can be answered before buying anything. Using the fitted model as a simulated plant, we compared one sensor on the lower tank, as built, with a second one added on the upper tank.</p>
+    <ul>
+      <li><strong>For forecasting, the second sensor barely helps.</strong> The uncertainty about the upper level shrinks from about ±0.08 V to ±0.06 V, and overflow warnings at least a minute ahead go from 51 % to 55 % of episodes, with the same false-alarm rate.</li>
+      <li><strong>For maintenance, it pays off.</strong> Pump wear is found in 2.4 minutes instead of 32, and a clog in the upper outlet becomes detectable at all; with one sensor it was missed in every simulated run.</li>
+    </ul>
+    <p>So the answer depends on what the plant needs: one sensor and the virtual one if the goal is to avoid overflow, two if the goal is also to catch wear early. The model puts a number on that choice. This part is a simulation study with the fitted model, not a measurement on the real rig.</p>
+
+    <h2>Findings the crew can act on</h2>
+    <p>Every number in the model is a physical quantity: how fast each outlet drains, how much the pump delivers per volt, where each tank overflows. When the plant changes, the model's numbers change with it, and that change has a meaning. Instead of "the error went up", the operator reads "lower-tank outlet flow is 18 % below normal: likely a partial clog". In the simulated plant, no such finding appeared on a healthy plant.</p>
+    <p>The model also protects itself from bad data. Each reading gets an inferred trust weight. A glitch from a faulty sensor gets a low weight and is set aside, so one bad value cannot drive a wrong action.</p>
+
+    <div class="callout">
+      <h3>Try the digital twin</h3>
+      <p>Move the pump, watch the tanks fill and overflow, and see the model's forecast with its uncertainty. Glitch the sensor, add a second one, or inject a fault such as a clogged outlet, and read what the model concludes. It runs the same verified C++ code as a plant deployment would, compiled for your browser.</p>
+      <a class="btn" href="../../demos/twin/">Open the digital twin</a>
+    </div>
+
+    <h2>What deployment looks like</h2>
+    <ul>
+      <li><strong>On the premises.</strong> The model takes a fraction of a millisecond per update on a laptop; the rig samples every 4 seconds. It fits a PLC, an industrial PC or a Raspberry Pi, with no cloud connection and no process data leaving the site.</li>
+      <li><strong>Little data per site.</strong> A new installation needs its handful of physical constants refitted from a short recording, not months of training data.</li>
+      <li><strong>Behaviour you can check.</strong> The assumptions are written down, the uncertainty is reported, and the code reproduces the model to twelve digits.</li>
+    </ul>
+
+    <h2>What it does not do</h2>
+    <p>The best published black-box correction is slightly more accurate on average, by less than the sensor noise. The value of a second sensor and the fault diagnosis were studied on the fitted model as a simulated plant, not on the physical rig. And the benchmark covers one rig and one operating range; a new plant needs its own short calibration.</p>
+
+    <h2>Technical details</h2>
+    <p>The model is a grey-box state-space model with Torricelli outflow, overflow at both tanks, a sensor that saturates at 10 V, and a small learned correction, inferred with tempered message passing. A paper describing it is in preparation for IFAC MICNON 2027.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Marco Hidalgo-Araya · Eindhoven</span>
+    <span>Probabilistic models solved by message passing</span>
+  </div>
+</footer>
+</body>
+</html>
