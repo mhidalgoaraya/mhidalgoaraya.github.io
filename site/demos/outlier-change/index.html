@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glitch or Real Change</title>
+<meta name="description" content="A tracker with two trust weights tells a sensor glitch from a real change, live in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Schibsted+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff; --ink: #0e0b14; --muted: #5d5868; --faint: #ebe8f0; --line: #d6d1de;
+  --accent: #7a1cff; --neon: #39ff14; --wash: rgba(57, 255, 20, 0.16); --vwash: rgba(122, 28, 255, 0.13);
+  --road: #f4f2f7; --steel: #8a8496; --st: #b98aff;
+  --display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Newsreader", Georgia, "Times New Roman", serif;
+  --data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font-family: var(--body); font-size: 1.08rem; line-height: 1.55; }
+.wrap { max-width: 72rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) max(16px, env(safe-area-inset-left, 0px)) 3rem; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.eyebrow { font-family: var(--data); font-size: 0.76rem; color: var(--muted); letter-spacing: 0.02em; }
+h1 { font-size: clamp(2rem, 5.4vw, 3.4rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; margin-top: 0.5rem; max-width: 20ch; }
+h1 em { font-style: normal; color: var(--accent); background: linear-gradient(transparent 62%, var(--neon) 62%, var(--neon) 92%, transparent 92%); }
+.lede { color: var(--muted); max-width: 44rem; margin-top: 1rem; font-size: clamp(1.08rem, 2vw, 1.25rem); }
+.tabs { display: flex; gap: 0.5rem; margin: 2rem 0 1.2rem; flex-wrap: wrap; }
+.tab { font-family: var(--display); font-weight: 500; font-size: 0.98rem; border: 1.5px solid var(--ink); background: var(--bg); color: var(--ink);
+       padding: 0.55rem 1.1rem; border-radius: 999px; cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.tab:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.grid { display: grid; grid-template-columns: minmax(16rem, 23rem) 1fr; gap: clamp(1rem, 3vw, 2rem); align-items: start; }
+.panel { border: 1px solid var(--line); border-radius: 8px; padding: 1rem; background: var(--bg); }
+.scene svg { width: 100%; height: auto; display: block; }
+.controls { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
+.hint { font-family: var(--data); font-size: 0.72rem; color: var(--muted); line-height: 1.45; margin-top: 0.25rem; }
+.btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn { font-family: var(--display); font-weight: 500; font-size: 0.98rem; border: 0; background: var(--accent); color: var(--bg);
+       padding: 0.7rem 1.1rem; border-radius: 999px; cursor: pointer; min-height: 2.75rem; }
+.btn:hover { background: var(--neon); color: var(--ink); }
+.btn.ghost { background: var(--bg); color: var(--ink); border: 1.5px solid var(--ink); }
+.btn.ghost:hover { background: var(--wash); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.8rem; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.8rem; min-width: 0; }
+.card .k { font-family: var(--display); font-size: 0.82rem; color: var(--muted); }
+.card .v { font-family: var(--data); font-size: clamp(1.1rem, 2.6vw, 1.45rem); font-weight: 500; margin-top: 0.15rem; white-space: nowrap; }
+.card .s { font-family: var(--data); font-size: 0.7rem; color: var(--muted); }
+.meter { height: 0.5rem; background: var(--faint); border-radius: 999px; margin-top: 0.4rem; overflow: hidden; }
+.meter > i { display: block; height: 100%; width: 100%; background: var(--neon); border-right: 2px solid var(--ink); transition: width 0.25s ease-out; }
+.meter.low > i { background: var(--accent); }
+.plot { position: relative; }
+.plot canvas { width: 100%; display: block; }
+.legend { display: flex; gap: 0.4rem 1.1rem; flex-wrap: wrap; font-family: var(--data); font-size: 0.72rem; color: var(--muted); margin-top: 0.6rem; }
+.legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.sw { display: inline-block; width: 1.3rem; height: 0.7rem; border-radius: 2px; }
+.status { font-family: var(--display); font-size: 0.98rem; margin-top: 0.8rem; min-height: 3em; }
+.status b { color: var(--accent); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 1rem; margin-top: 0.9rem; font-size: 0.98rem; }
+.kv b { font-family: var(--data); font-weight: 500; color: var(--accent); }
+.kv .best { background: var(--wash); box-shadow: inset 3px 0 0 var(--accent); padding-left: 0.4rem; }
+.explain { margin-top: 2.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.explain h3 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.01em; }
+.explain p { color: var(--muted); font-size: 1rem; margin-top: 0.4rem; }
+.foot { margin-top: 2rem; font-family: var(--data); font-size: 0.72rem; color: var(--muted); border-top: 1px solid var(--faint); padding-top: 1rem; }
+.foot a { color: inherit; }
+.hidden { display: none !important; }
+/* scene */
+.lbl { font-family: var(--data); font-size: 10.5px; fill: var(--muted); }
+.lbl.ink { fill: var(--ink); }
+.lbl.vi { fill: var(--accent); }
+.road { fill: var(--road); }
+.edge { stroke: var(--ink); stroke-width: 2; }
+.lane { stroke: var(--steel); stroke-width: 1.6; stroke-dasharray: 14 10; }
+.moving .lane { animation: roll 1.8s linear infinite; }
+@keyframes roll { to { stroke-dashoffset: 24; } }
+.robot { transition: transform 0.28s ease-out; }
+.ping { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; }
+.ping.glitch { fill: var(--neon); }
+.trail-kf { fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-dasharray: 5 4; }
+.trail-st { fill: none; stroke: var(--st); stroke-width: 1.8; }
+.trail-ot { fill: none; stroke: var(--accent); stroke-width: 2.4; }
+.trail-x { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 1.5 3; }
+.strata { stroke: var(--line); stroke-width: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .moving .lane { animation: none; }
+  .robot, .meter > i { transition: none; }
+}
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+  .scene svg { max-width: 26rem; margin: 0 auto; }
+  .explain { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .cards { grid-template-columns: 1fr 1fr; }
+  .cards .card:first-child { grid-column: span 2; }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="eyebrow">Robust tracking · EUSIPCO 2027 paper · runs live in your browser</p>
+  <h1>Glitch or real change? <em>Ask which trust dropped</em></h1>
+  <p class="lede">A delivery robot drives down a three-lane road, and a GPS reports which way it has drifted sideways. Sometimes the GPS
+    glitches for one reading. Sometimes the robot really changes lane. On the first odd reading the two look exactly the same.
+    The tracker keeps two trust weights, one for the sensor and one for its own idea of how the robot moves, and lets the next
+    reading decide which one to lower.</p>
+
+  <div class="tabs" role="tablist" aria-label="Mode">
+    <button class="tab" role="tab" id="tab-live" aria-selected="true" aria-controls="main-grid">Live robot</button>
+    <button class="tab" role="tab" id="tab-real" aria-selected="false" aria-controls="main-grid">Real data: a borehole log</button>
+  </div>
+
+  <div class="grid" id="main-grid">
+    <section class="panel scene" aria-label="Scene">
+      <svg id="road-svg" viewBox="0 0 360 300" role="img" aria-labelledby="road-title">
+        <title id="road-title">Top view of a three-lane road with the robot, its GPS reading and the tracks of three trackers</title>
+        <rect x="0" y="40" width="360" height="180" class="road"/>
+        <line x1="0" x2="360" y1="40" y2="40" class="edge"/><line x1="0" x2="360" y1="220" y2="220" class="edge"/>
+        <line x1="0" x2="360" y1="100" y2="100" class="lane"/><line x1="0" x2="360" y1="160" y2="160" class="lane"/>
+        <text x="4" y="32" class="lbl">← where it has been</text><text x="356" y="32" class="lbl" text-anchor="end">driving →</text>
+        <g id="trail">
+          <path id="tr-x" class="trail-x"/><path id="tr-kf" class="trail-kf"/><path id="tr-st" class="trail-st"/><path id="tr-ot" class="trail-ot"/>
+          <g id="tr-y"></g>
+        </g>
+        <line id="ping-line" x1="232" x2="232" y1="130" y2="130" stroke="var(--ink)" stroke-width="1" stroke-dasharray="2 3"/>
+        <g class="robot" id="robot">
+          <rect x="212" y="122" width="7" height="4" rx="1" fill="var(--ink)"/><rect x="236" y="122" width="7" height="4" rx="1" fill="var(--ink)"/>
+          <rect x="212" y="134" width="7" height="4" rx="1" fill="var(--ink)"/><rect x="236" y="134" width="7" height="4" rx="1" fill="var(--ink)"/>
+          <rect x="208" y="124" width="40" height="12" rx="4" fill="var(--bg)" stroke="var(--ink)" stroke-width="2"/>
+          <path d="M248 126 L254 130 L248 134" fill="none" stroke="var(--ink)" stroke-width="1.6"/>
+          <circle cx="232" cy="130" r="3.2" fill="var(--neon)" stroke="var(--ink)" stroke-width="1.2"/>
+        </g>
+        <g id="ping"><circle cx="232" cy="130" r="7" class="ping" id="ping-c"/><path id="ping-x" d="M226 130 H238 M232 124 V136" stroke="var(--ink)" stroke-width="1"/></g>
+        <text id="ping-lbl" x="262" y="133" class="lbl ink">GPS</text>
+        <text x="4" y="236" class="lbl">3 lanes, 3 m wide · GPS error about 0.5 m</text>
+        <line x1="6" x2="26" y1="252" y2="252" class="trail-ot"/><text x="32" y="255" class="lbl vi">two trust weights (TMP)</text>
+        <line x1="6" x2="26" y1="268" y2="268" class="trail-st"/><text x="32" y="271" class="lbl">distrusts odd readings</text>
+        <line x1="190" x2="210" y1="252" y2="252" class="trail-kf"/><text x="216" y="255" class="lbl">trusts every reading</text>
+        <line x1="190" x2="210" y1="268" y2="268" class="trail-x"/><text x="216" y="271" class="lbl">where it really drove</text>
+        <circle cx="16" cy="286" r="2.2" fill="var(--ink)"/><text x="32" y="289" class="lbl">GPS readings</text>
+      </svg>
+      <svg id="well-svg" class="hidden" viewBox="0 0 360 300" role="img" aria-labelledby="well-title">
+        <title id="well-title">A probe lowered into a borehole through rock layers</title>
+        <g id="strata"></g>
+        <rect x="150" y="20" width="22" height="270" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+        <line id="cable" x1="161" x2="161" y1="8" y2="40" stroke="var(--ink)" stroke-width="1.4"/>
+        <rect id="unseen" x="20" y="20" width="320" height="0" fill="rgba(255,255,255,0.72)"/>
+        <g id="probe"><rect x="155" y="-12" width="12" height="24" rx="3" fill="var(--neon)" stroke="var(--ink)" stroke-width="1.5"/></g>
+        <text x="148" y="14" class="lbl" text-anchor="end">surface</text>
+        <text x="180" y="14" class="lbl">layers: 3+ of 5 experts</text>
+        <text id="depth-lbl" x="180" y="40" class="lbl vi">probe: sample 0</text>
+      </svg>
+      <div class="controls" id="live-controls">
+        <div class="btns">
+          <button class="btn" id="b-glitch">GPS glitch</button>
+          <button class="btn" id="b-change">Change lane</button>
+          <button class="btn ghost" id="b-auto" aria-pressed="false">Auto</button>
+          <button class="btn ghost" id="b-play">Pause</button>
+        </div>
+        <p class="hint">Both surprises are 3 m, so the first odd reading looks the same either way. A glitch is gone at the next
+          reading; a lane change stays. The two-weight tracker waits one reading (a quarter of a second) before it decides.</p>
+      </div>
+      <div class="controls hidden" id="real-controls">
+        <div class="btns">
+          <button class="btn" id="r-play">Play</button>
+          <button class="btn ghost" id="r-restart">Restart</button>
+          <button class="btn ghost" id="r-end">Jump to end</button>
+        </div>
+        <p class="hint">Well-log: 675 readings of a probe lowered into a borehole (Ó Ruanaidh and Fitzgerald, 1996). The rock changes
+          in layers, and the record also holds isolated spikes. Same three trackers, settings tuned on the first half as in the paper;
+          each decides three readings later.</p>
+      </div>
+    </section>
+
+    <section aria-label="Readings, estimates and trust weights">
+      <div class="cards">
+        <div class="card"><div class="k" id="c1-k">GPS reading</div><div class="v" id="c1">–</div><div class="s" id="c1-s">sideways, from lane centre</div></div>
+        <div class="card"><div class="k">Trust in the sensor</div><div class="v" id="c2">–</div><div class="meter" id="m2"><i></i></div><div class="s">100 % = normal</div></div>
+        <div class="card"><div class="k">Trust in the motion model</div><div class="v" id="c3">–</div><div class="meter" id="m3"><i></i></div><div class="s">100 % = normal</div></div>
+      </div>
+      <div class="panel plot">
+        <canvas id="plot" height="420" role="img" aria-label="Plot of the readings, the true position, three trackers' estimates, and the two trust weights over time"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+      <p class="status" id="status" aria-live="polite"></p>
+      <div class="kv" id="score"></div>
+    </section>
+  </div>
+
+  <section class="explain">
+    <div><h3>Two weights, two suspects</h3><p>Every reading enters the tracker through two doors: "the sensor says" and "robots move
+      smoothly". Each door has a trust weight that starts at 100 %. A surprising reading must lower one of them. Lower the sensor's
+      weight and the estimate holds; lower the motion model's weight and the estimate jumps to follow.</p></div>
+    <div><h3>The next reading decides</h3><p>Sensor glitch: the measurement's weight drops, the estimate holds. Real change: the
+      motion model's weight drops, the estimate follows. One odd reading cannot tell the two apart; the reading after it can,
+      because a glitch does not repeat and a lane change does. So the tracker decides one reading late.</p></div>
+    <div><h3>Same scale, any units</h3><p>The weights are "units-invariant": measure in metres or millimetres and they come out the
+      same. With only the sensor weight, this tracker is the classic Student-t filter; with neither, it is the ordinary Kalman
+      filter, which trusts every reading and is dragged by every glitch.</p></div>
+  </section>
+  <p class="foot">Local-level model, Q/R = 0.02 (live). Kalman filter; Student-t filter (sensor weight only, prior CV 0.5);
+    two-weight tempered message passing (TMP, sensor CV 0.35, motion CV 2, one-reading window, 50 iterations). Closed-form updates
+    ported from the paper's Julia code and checked against it to 1e-13 (test/check.mjs). Well-log data: TCPD (van den Burg and
+    Williams, 2020) via bocpdms, MIT licence, <a href="https://github.com/alan-turing-institute/TCPD">github.com/alan-turing-institute/TCPD</a>;
+    original series Ó Ruanaidh and Fitzgerald, 1996. Marco Hidalgo-Araya.</p>
+</main>
+
+<script src="tmp.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const C = { ink: "#0e0b14", muted: "#5d5868", faint: "#ebe8f0", line: "#d6d1de", vi: "#7a1cff", st: "#b98aff", grey: "#8a8496",
+              neon: "#39ff14", lane: "rgba(122,28,255,0.06)", ev: "rgba(57,255,20,0.22)" };
+  const M = 0.5;                 // metres per model unit (GPS noise σ = 1 unit = 0.5 m)
+  const Q = 0.02, LANE = 6, DT = 0.25, WIN = 120, TRAIL = 46;
+  const cfg = { kf: { Q, tO: false, tT: false }, st: { Q, aO: 4, tT: false, lag: 0, nit: 50 },
+                ot: { Q, aO: 8, aT: 0.25, lag: 1, nit: 50 } };
+  const pct = g => g >= 0.995 ? Math.round(100 * g) + " %" : g >= 0.095 ? Math.round(100 * g) + " %" : g >= 0.0095 ? (100 * g).toFixed(1) + " %" : (100 * g).toFixed(2) + " %";
+
+  // ------------------------------------------------------------------ live simulation
+  let sim, mode = "live", running = !reduce, timer = null, auto = false, nextAuto = 0, lastTick = 0;
+  function rnd() { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function simReset() {
+    sim = { x: [], y: [], lane: 0, pend: null, ev: [], kf: new TMP.Tracker(cfg.kf), st: new TMP.Tracker(cfg.st), ot: new TMP.Tracker(cfg.ot),
+            told: new Set(), msg: "" };
+    for (let i = 0; i < 40; i++) simStep(true);
+  }
+  function simStep(quiet) {
+    const n = sim.x.length, prev = n ? sim.x[n - 1] : 0;
+    let x = prev + Math.sqrt(Q) * rnd() - 0.02 * (prev - sim.lane);   // a gentle pull to the lane centre keeps it on the road
+    let y;
+    const p = sim.pend; sim.pend = null;
+    if (p === "change") { x += sim.laneStep; }
+    y = x + rnd();
+    if (p === "glitch") { const s = Math.random() < 0.5 ? -1 : 1; y += s * LANE; }
+    if (p) sim.ev.push({ t: n, kind: p });
+    sim.x.push(x); sim.y.push(y);
+    sim.kf.push(y); sim.st.push(y); sim.ot.push(y);
+    if (auto && n >= nextAuto && !sim.pend) { inject(Math.random() < 0.5 ? "glitch" : "change"); nextAuto = n + 28 + Math.floor(Math.random() * 24); }
+    if (!quiet) narrate();
+  }
+  function inject(kind) {
+    if (sim.pend) return;
+    if (kind === "change") {
+      const opts = sim.lane <= -LANE ? [LANE] : sim.lane >= LANE ? [-LANE] : [-LANE, LANE];
+      sim.laneStep = opts[Math.floor(Math.random() * opts.length)]; sim.lane += sim.laneStep;
+    }
+    sim.pend = kind;
+    $("status").innerHTML = kind === "glitch" ? "Next GPS reading: <b>3 m off</b>, once." : "Next reading: the robot <b>changes lane</b> (3 m) and stays there.";
+    if (!running) { simStep(); simStep(); drawAll(); }   // paused: the surprising reading and the one after it, so the verdict shows
+  }
+  function narrate() {
+    for (const e of sim.ev) {
+      if (sim.told.has(e.t) || sim.ot.done <= e.t) continue;
+      sim.told.add(e.t);
+      const t = e.t, gO = sim.ot.gO[t], gT = sim.ot.gT[t];
+      const eo = Math.abs(sim.ot.xs[t] - sim.x[t]) * M, ek = Math.abs(sim.kf.xh[t] - sim.x[t]) * M, es = Math.abs(sim.st.xh[t] - sim.x[t]) * M;
+      const asChange = gT < 0.5 && gT < gO, asGlitch = !asChange && gO < 0.5;
+      const verdict = asChange ? `read it as a <b>real change</b>: trust in the motion model fell to <b>${pct(gT)}</b>, the estimate followed`
+                    : asGlitch ? `read it as a <b>sensor glitch</b>: trust in the GPS fell to <b>${pct(gO)}</b>, the estimate held`
+                    : `absorbed it as ordinary noise`;
+      const right = (e.kind === "change") === asChange && (e.kind === "glitch") === asGlitch;
+      const head = e.kind === "glitch" ? "GPS glitch." : "Lane change.";
+      const tail = e.kind === "glitch"
+        ? ` Two-weight tracker off by ${eo.toFixed(2)} m; the one that trusts everything jumped ${ek.toFixed(2)} m toward the glitch.`
+        : ` Two-weight tracker off by ${eo.toFixed(2)} m; the one that trusts everything is still ${ek.toFixed(2)} m behind, the Student-t one ${es.toFixed(2)} m.`;
+      sim.msg = `${head} One reading later the tracker ${verdict}. ${right ? "Right call." : "Wrong call this time."}${tail}`;
+      $("status").innerHTML = sim.msg;
+    }
+  }
+
+  // ------------------------------------------------------------------ real data (well-log)
+  let wl = null, rk = 0, rRunning = false;
+  async function loadWell() {
+    if (wl) return;
+    const d = await (await fetch("welllog.json")).json();
+    const k = TMP.tmpFilter(d.y, { Q: 0.1, tO: false, tT: false, lag: 3 });
+    const s = TMP.tmpFilter(d.y, { Q: 1, aO: 4, tT: false, lag: 3, nit: 50 });
+    const o = TMP.tmpFilter(d.y, { Q: 0.1, aO: 0.5, aT: 0.25, lag: 3, nit: 50 });
+    const rm = v => { let a = 0, n = 0; for (let i = d.ntrain; i < d.y.length; i++) { a += (v[i] - d.ref[i]) ** 2; n++; } return Math.sqrt(a / n); };
+    wl = { ...d, T: d.y.length, kf: k.xs, st: s.xs, ot: o.xs, gO: o.gO, gT: o.gT, rm: { kf: rm(k.xs), st: rm(s.xs), ot: rm(o.xs) } };
+    let lo = Infinity, hi = -Infinity; for (const v of d.y) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    wl.lo = Math.floor(lo) - 1; wl.hi = Math.ceil(hi) + 1;
+    // strata drawing: layers between the consensus change points
+    const b = [0, ...d.cps, wl.T], g = $("strata"); let h = "";
+    for (let i = 0; i < b.length - 1; i++) {
+      const y0 = depthY(b[i]), y1 = depthY(b[i + 1]);
+      let m = 0; for (let t = b[i]; t < b[i + 1]; t++) m += d.ref[t]; m /= (b[i + 1] - b[i]);
+      const shade = Math.max(0, Math.min(1, (m - wl.lo) / (wl.hi - wl.lo)));
+      h += `<rect x="20" y="${y0.toFixed(1)}" width="320" height="${(y1 - y0).toFixed(1)}" fill="rgba(122,28,255,${(0.04 + 0.22 * shade).toFixed(3)})"/>`;
+      if (i) h += `<line x1="20" x2="340" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}" class="strata"/>`;
+    }
+    g.innerHTML = h;
+  }
+  const depthY = t => 20 + 270 * t / (wl ? wl.T - 1 : 674);
+
+  // ------------------------------------------------------------------ canvas plot (twin style)
+  const cv = $("plot"), ctx = cv.getContext("2d");
+  let PW = 600, PH = 420, dpr = 1;
+  function resize() {
+    dpr = window.devicePixelRatio || 1; PW = cv.clientWidth; PH = PW < 520 ? 400 : 430;
+    cv.style.height = PH + "px"; cv.width = Math.round(PW * dpr); cv.height = Math.round(PH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawAll();
+  }
+  const PAD = { l: 44, r: 16 };
+  function panels(lo, hi, unit) {
+    const top = 26, gap = 30, h3 = 54, h2 = 54, h1 = PH - top - 3 * gap - h2 - h3;
+    return [{ y: top, h: h1, lo, hi, title: unit },
+            { y: top + h1 + gap, h: h2, log: true, title: "Trust in the sensor (two-weight tracker)" },
+            { y: top + h1 + h2 + 2 * gap, h: h3, log: true, title: "Trust in the motion model (two-weight tracker)" }];
+  }
+  const LG = { lo: -3, hi: Math.log10(2) };
+  function axes(P, t0, t1, ticks, yt, yfmt) {
+    const X = t => PAD.l + (t - t0) / (t1 - t0) * (PW - PAD.l - PAD.r);
+    ctx.textBaseline = "middle";
+    for (const p of P) {
+      const Y = p.log ? v => p.y + p.h - (Math.log10(Math.max(v, 1e-3)) - LG.lo) / (LG.hi - LG.lo) * p.h
+                      : v => p.y + p.h - (v - p.lo) / (p.hi - p.lo) * p.h;
+      p.Y = Y;
+      ctx.fillStyle = C.ink; ctx.font = "500 12.5px 'Schibsted Grotesk', sans-serif"; ctx.textAlign = "left";
+      ctx.fillText(p.title, PAD.l, p.y - 12);
+      ctx.font = "11px 'IBM Plex Mono', monospace"; ctx.fillStyle = C.muted; ctx.textAlign = "right";
+      const ts = p.log ? [[1, "100%"], [0.01, "1%"]] : yt.map(v => [v, yfmt(v)]);
+      for (const [v, s] of ts) {
+        ctx.strokeStyle = C.faint; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(PAD.l, Y(v)); ctx.lineTo(PW - PAD.r, Y(v)); ctx.stroke();
+        ctx.fillText(s, PAD.l - 6, Y(v));
+      }
+    }
+    ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = C.muted;
+    const last = P[P.length - 1];
+    for (const t of ticks) ctx.fillText(t.label, X(t.t), last.y + last.h + 6);
+    return X;
+  }
+  function line(X, Y, i0, v, color, w, dash) {
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath();
+    let on = false;
+    for (let i = i0; i < v.length; i++) { const y = v[i]; if (y == null || isNaN(y)) { on = false; continue; } on ? ctx.lineTo(X(i), Y(y)) : ctx.moveTo(X(i), Y(y)); on = true; }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  function dots(X, Y, i0, i1, v, r, flag) {
+    for (let i = i0; i < i1; i++) {
+      const f = flag && flag(i);
+      ctx.fillStyle = f ? C.neon : C.ink; ctx.beginPath(); ctx.arc(X(i), Y(v[i]), f ? r + 2 : r, 0, 2 * Math.PI); ctx.fill();
+      if (f) { ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.stroke(); }
+    }
+  }
+  function bars(p, X, i0, i1, g) {
+    if (X(1) - X(0) < 2.5) {        // dense: neon area under the weight, violet ticks where trust fell below 50 %
+      ctx.fillStyle = "rgba(57,255,20,0.45)"; ctx.beginPath(); ctx.moveTo(X(i0), p.Y(1e-3));
+      for (let i = i0; i < i1; i++) ctx.lineTo(X(i), p.Y(g[i]));
+      ctx.lineTo(X(i1 - 1), p.Y(1e-3)); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 0.8; ctx.beginPath();
+      for (let i = i0; i < i1; i++) i === i0 ? ctx.moveTo(X(i), p.Y(g[i])) : ctx.lineTo(X(i), p.Y(g[i])); ctx.stroke();
+      ctx.fillStyle = C.vi;
+      for (let i = i0; i < i1; i++) if (g[i] < 0.5) ctx.fillRect(X(i) - 1.5, Math.min(p.Y(g[i]), p.Y(1e-3) - 3), 3, Math.max(3, p.Y(1e-3) - p.Y(g[i])));
+      return;
+    }
+    const w = Math.max(1.2, (X(1) - X(0)) * 0.7);
+    for (let i = i0; i < i1; i++) {
+      if (g[i] == null || isNaN(g[i])) continue;
+      const v = g[i];
+      ctx.fillStyle = v < 0.5 ? C.vi : C.neon;
+      ctx.fillRect(X(i) - w / 2, Math.min(p.Y(v), p.Y(1e-3) - 3), w, Math.max(3, p.Y(1e-3) - p.Y(v)));
+    }
+  }
+  function clip(p, f) { ctx.save(); ctx.beginPath(); ctx.rect(PAD.l, p.y - 2, PW - PAD.l - PAD.r, p.h + 4); ctx.clip(); f(); ctx.restore(); }
+  function nowLine(P, x, label) {
+    const a = P[0].y - 4, b = P[P.length - 1].y + P[P.length - 1].h;
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, a); ctx.lineTo(x, b); ctx.stroke();
+    if (label) { ctx.fillStyle = C.ink; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.font = "500 11px 'IBM Plex Mono', monospace"; ctx.fillText(label, x - 4, P[0].y + 12); }
+  }
+
+  function drawLive() {
+    ctx.clearRect(0, 0, PW, PH);
+    const n = sim.y.length, i0 = Math.max(0, n - WIN), t1 = i0 + WIN - 1;
+    const P = panels(-11, 11, "Sideways position (m)");
+    const ticks = []; for (let s = 0; s <= 30; s += (PW < 520 ? 10 : 5)) ticks.push({ t: n - 1 - s / DT, label: s ? "−" + s + " s" : "now" });
+    const X = axes(P, i0, Math.max(t1, n - 1), ticks, [-6, 0, 6], v => (v * M).toFixed(0));
+    const p = P[0];
+    clip(p, () => {
+      for (const c of [-6, 6]) { ctx.fillStyle = C.lane; ctx.fillRect(PAD.l, p.Y(c + 3), PW - PAD.l - PAD.r, p.Y(c - 3) - p.Y(c + 3)); }
+      let lastX = -1e9, row = 0;
+      for (const e of sim.ev) if (e.t >= i0) {
+        ctx.fillStyle = C.ev; ctx.fillRect(X(e.t) - 5, p.y, 10, p.h);
+        ctx.fillStyle = C.ink; ctx.font = "10.5px 'IBM Plex Mono', monospace"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        row = X(e.t) - lastX < 80 ? 1 - row : 0; lastX = X(e.t);
+        ctx.fillText(e.kind === "glitch" ? "glitch" : "lane change", X(e.t), p.y + 3 + 13 * row);
+      }
+      line(X, p.Y, i0, sim.x, C.ink, 1, [1.5, 3]);
+      line(X, p.Y, i0, sim.kf.xh, C.grey, 1.6, [5, 4]);
+      line(X, p.Y, i0, sim.st.xh, C.st, 1.8);
+      line(X, p.Y, i0, sim.ot.xs, C.vi, 2.4);
+      const evs = new Set(sim.ev.filter(e => e.kind === "glitch").map(e => e.t));
+      dots(X, p.Y, i0, n, sim.y, PW < 520 ? 1.5 : 1.9, i => evs.has(i));
+    });
+    bars(P[1], X, i0, sim.ot.done, sim.ot.gO);
+    bars(P[2], X, i0, sim.ot.done, sim.ot.gT);
+    nowLine(P, X(n - 1));
+  }
+  function drawReal() {
+    ctx.clearRect(0, 0, PW, PH);
+    if (!wl) return;
+    const P = panels(wl.lo, wl.hi, "Probe reading (noise units)");
+    const ticks = []; for (let s = 0; s <= 600; s += (PW < 520 ? 200 : 100)) ticks.push({ t: s, label: String(s) });
+    const yt = []; for (let v = Math.ceil(wl.lo / 10) * 10; v <= wl.hi; v += 10) yt.push(v);
+    const X = axes(P, 0, wl.T - 1, ticks, yt, v => String(v));
+    const p = P[0], k = rk + 1, cut = a => a.slice(0, k);
+    clip(p, () => {
+      ctx.fillStyle = "rgba(235,232,240,0.6)"; ctx.fillRect(X(0), p.y, X(wl.ntrain) - X(0), p.h);
+      ctx.fillStyle = C.muted; ctx.font = "10.5px 'IBM Plex Mono', monospace"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.textBaseline = "bottom"; ctx.fillText("tuning half", X(0) + 3, p.y + p.h - 3); ctx.fillText("evaluation half", X(wl.ntrain) + 3, p.y + p.h - 3);
+      for (const c of wl.cps) { ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(c), p.y); ctx.lineTo(X(c), p.y + p.h); ctx.stroke(); }
+      dots(X, p.Y, 0, k, wl.y, PW < 520 ? 1 : 1.3);
+      line(X, p.Y, 0, cut(wl.ref), C.ink, 1, [1.5, 3]);
+      line(X, p.Y, 0, cut(wl.kf), C.grey, 1.4, [5, 4]);
+      line(X, p.Y, 0, cut(wl.st), C.st, 1.6);
+      line(X, p.Y, 0, cut(wl.ot), C.vi, 2.2);
+    });
+    bars(P[1], X, 0, k, wl.gO);
+    bars(P[2], X, 0, k, wl.gT);
+    nowLine(P, X(rk), rk < wl.T - 1 ? "reading " + rk : "");
+    // ticks label units
+    ctx.fillStyle = C.muted; ctx.font = "11px 'IBM Plex Mono', monospace"; ctx.textAlign = "right"; ctx.textBaseline = "top";
+  }
+
+  // ------------------------------------------------------------------ scene
+  const RX = 232, SP = 4.4, Ym = u => 130 - 10 * u;
+  function path(vals, n, upto, cl) {
+    let d = "";
+    for (let a = 0; a <= TRAIL; a++) {
+      const i = n - 1 - a; if (i < 0 || i >= upto) continue;
+      const v = vals[i]; if (v == null || isNaN(v)) continue;
+      d += (d ? "L" : "M") + (RX - a * SP).toFixed(1) + " " + Math.max(36, Math.min(224, Ym(v))).toFixed(1);
+    }
+    return d;
+  }
+  function drawRoad() {
+    const n = sim.y.length;
+    $("tr-x").setAttribute("d", path(sim.x, n, n)); $("tr-kf").setAttribute("d", path(sim.kf.xh, n, n));
+    $("tr-st").setAttribute("d", path(sim.st.xh, n, n)); $("tr-ot").setAttribute("d", path(sim.ot.xs, n, sim.ot.done));
+    const evs = new Set(sim.ev.filter(e => e.kind === "glitch").map(e => e.t));
+    let h = "";
+    for (let a = 1; a <= TRAIL; a++) { const i = n - 1 - a; if (i < 0) break;
+      const yy = Math.max(36, Math.min(224, Ym(sim.y[i])));
+      h += evs.has(i) ? `<circle cx="${(RX - a * SP).toFixed(1)}" cy="${yy.toFixed(1)}" r="4" fill="var(--neon)" stroke="var(--ink)" stroke-width="1"/>`
+                      : `<circle cx="${(RX - a * SP).toFixed(1)}" cy="${yy.toFixed(1)}" r="1.8" fill="var(--ink)"/>`; }
+    $("tr-y").innerHTML = h;
+    const xr = sim.x[n - 1], yr = sim.y[n - 1];
+    $("robot").style.transform = `translateY(${(Ym(xr) - 130).toFixed(1)}px)`;
+    const py = Math.max(36, Math.min(224, Ym(yr)));
+    $("ping").setAttribute("transform", `translate(0 ${(py - 130).toFixed(1)})`);
+    $("ping-c").classList.toggle("glitch", evs.has(n - 1));
+    $("ping-line").setAttribute("y1", Ym(xr).toFixed(1)); $("ping-line").setAttribute("y2", py.toFixed(1));
+    $("ping-lbl").setAttribute("y", (py + 3).toFixed(1));
+  }
+  function slide(ts) {
+    if (mode === "live" && running && !reduce) {
+      const f = Math.min(1, (ts - lastTick) / tickMs());
+      $("trail").setAttribute("transform", `translate(${(-f * SP).toFixed(2)} 0)`);
+    }
+    requestAnimationFrame(slide);
+  }
+
+  // ------------------------------------------------------------------ side panel
+  function meter(id, g) { const m = $(id); m.firstElementChild.style.width = (100 * Math.max(0.02, Math.min(1, 1 + Math.log10(Math.max(g, 1e-3)) / 3))) + "%"; m.classList.toggle("low", g < 0.5); }
+  function side() {
+    let gO, gT;
+    if (mode === "live") {
+      const n = sim.y.length; $("c1").textContent = (sim.y[n - 1] * M).toFixed(2) + " m";
+      const d = sim.ot.done - 1; gO = sim.ot.gO[d]; gT = sim.ot.gT[d];
+      // score over the visible window
+      const i0 = Math.max(1, n - WIN), e = k => { let a = 0, c = 0; for (let i = i0; i < Math.min(n, sim.ot.done); i++) { a += (k[i] - sim.x[i]) ** 2; c++; } return Math.sqrt(a / Math.max(c, 1)) * M; };
+      scoreBox("Typical miss over the last 30 s", { kf: e(sim.kf.xh), st: e(sim.st.xh), ot: e(sim.ot.xs) }, " m");
+    } else {
+      if (!wl) return;
+      $("c1").textContent = wl.y[rk].toFixed(1); gO = wl.gO[rk]; gT = wl.gT[rk];
+      scoreBox("Typical miss on the evaluation half (paper: 0.93, 0.59, 0.36)", wl.rm, "");
+    }
+    $("c2").textContent = pct(gO); $("c3").textContent = pct(gT); meter("m2", gO); meter("m3", gT);
+  }
+  function scoreBox(title, r, unit) {
+    const best = Object.keys(r).reduce((a, b) => r[a] <= r[b] ? a : b);
+    const row = (k, name) => `<span class="${k === best ? "best" : ""}">${name}</span><b>${r[k].toFixed(2)}${unit}</b>`;
+    $("score").innerHTML = `<span style="grid-column:1/-1;font-family:var(--display);font-size:0.86rem;color:var(--muted)">${title}</span>` +
+      row("kf", "Trusts every reading (Kalman)") + row("st", "Distrusts odd readings (Student-t)") + row("ot", "Two trust weights (TMP)");
+  }
+  function legend() {
+    const L = [["dot", C.ink, mode === "live" ? "GPS reading" : "probe reading"], ["sq", C.neon, "glitched reading"],
+               ["dot2", C.ink, mode === "live" ? "true position" : "level within the experts' layers"], ["line", C.vi, "two trust weights (TMP)"],
+               ["line", C.st, "distrusts odd readings"], ["dash", C.grey, "trusts every reading"], ["bar", C.vi, "trust below 50 %"]];
+    if (mode !== "live") L.splice(1, 1);
+    $("legend").innerHTML = L.map(([k, c, t]) => {
+      const sw = k === "line" ? `<i class="sw" style="height:3px;background:${c}"></i>` :
+                 k === "dash" ? `<i class="sw" style="height:0;border-top:2px dashed ${c}"></i>` :
+                 k === "dot2" ? `<i class="sw" style="height:0;border-top:2px dotted ${c}"></i>` :
+                 k === "dot" ? `<i class="sw" style="width:0.55rem;height:0.55rem;border-radius:50%;background:${c}"></i>` :
+                 k === "sq" ? `<i class="sw" style="width:0.7rem;height:0.7rem;border-radius:50%;background:${c};border:1px solid #0e0b14"></i>` :
+                 `<i class="sw" style="width:0.5rem;background:${c}"></i>`;
+      return `<span>${sw}${t}</span>`;
+    }).join("");
+  }
+  function drawWell() {
+    if (!wl) return;
+    const y = depthY(rk);
+    $("probe").setAttribute("transform", `translate(0 ${y.toFixed(1)})`);
+    $("cable").setAttribute("y2", (y - 12).toFixed(1));
+    $("unseen").setAttribute("y", y.toFixed(1)); $("unseen").setAttribute("height", Math.max(0, 290 - y).toFixed(1));
+    $("depth-lbl").setAttribute("y", Math.max(40, y + 4).toFixed(1));
+    $("depth-lbl").textContent = `probe: reading ${rk}`;
+  }
+  function drawAll() {
+    if (mode === "live") { if (!sim) return; drawLive(); drawRoad(); } else { drawReal(); drawWell(); }
+    side();
+  }
+
+  // ------------------------------------------------------------------ timing and controls
+  const tickMs = () => reduce ? 900 : 300;
+  function schedule() {
+    clearInterval(timer); timer = null;
+    if (mode === "live" && running) timer = setInterval(() => { lastTick = performance.now(); simStep(); drawAll(); }, tickMs());
+    if (mode === "real" && rRunning) timer = setInterval(() => {
+      rk = Math.min(wl.T - 1, rk + (reduce ? 6 : 2));
+      if (rk >= wl.T - 1) { rRunning = false; $("r-play").textContent = "Play"; schedule(); }
+      drawAll();
+    }, reduce ? 200 : 40);
+  }
+  $("b-glitch").onclick = () => inject("glitch");
+  $("b-change").onclick = () => inject("change");
+  $("b-auto").onclick = () => { auto = !auto; $("b-auto").setAttribute("aria-pressed", String(auto)); nextAuto = sim.y.length + 4;
+    if (auto && !running) { running = true; $("b-play").textContent = "Pause"; schedule(); } };
+  $("b-play").onclick = () => { running = !running; $("b-play").textContent = running ? "Pause" : "Play"; $("trail").removeAttribute("transform");
+    document.querySelector(".scene").classList.toggle("moving", running && mode === "live"); schedule(); };
+  $("r-play").onclick = () => { if (rk >= wl.T - 1) rk = 0; rRunning = !rRunning; $("r-play").textContent = rRunning ? "Pause" : "Play"; schedule(); };
+  $("r-restart").onclick = () => { rk = 0; drawAll(); };
+  $("r-end").onclick = () => { rk = wl.T - 1; rRunning = false; $("r-play").textContent = "Play"; schedule(); drawAll(); };
+  async function setMode(m) {
+    mode = m; $("tab-live").setAttribute("aria-selected", String(m === "live")); $("tab-real").setAttribute("aria-selected", String(m !== "live"));
+    for (const id of ["road-svg", "live-controls"]) $(id).classList.toggle("hidden", m !== "live");
+    for (const id of ["well-svg", "real-controls"]) $(id).classList.toggle("hidden", m === "live");
+    $("c1-k").textContent = m === "live" ? "GPS reading" : "Probe reading";
+    $("c1-s").textContent = m === "live" ? "sideways, from lane centre" : "scaled to noise units";
+    document.querySelector(".scene").classList.toggle("moving", running && m === "live");
+    if (m === "real") {
+      await loadWell();
+      $("status").innerHTML = "Spikes lower the <b>sensor</b> weight; where the rock changes, the <b>motion-model</b> weight drops and the estimate steps to the new layer.";
+      if (rk === 0 && !reduce) { rRunning = true; $("r-play").textContent = "Pause"; }
+    } else { rRunning = false; $("status").innerHTML = sim.msg || ""; }
+    legend(); schedule(); drawAll();
+  }
+  $("tab-live").onclick = () => setMode("live");
+  $("tab-real").onclick = () => setMode("real");
+  document.addEventListener("keydown", e => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const t = document.activeElement; if (!t || !t.classList.contains("tab")) return;
+    (t.id === "tab-live" ? $("tab-real") : $("tab-live")).focus();
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { clearInterval(timer); timer = null; } else schedule(); });
+
+  simReset();
+  if (reduce) { running = false; $("b-play").textContent = "Play"; }
+  $("status").innerHTML = reduce ? "Press <b>GPS glitch</b> or <b>Change lane</b>: each press adds one reading. Press Play to let it drive."
+                                 : "Press <b>GPS glitch</b> or <b>Change lane</b>, or <b>Auto</b> to let it surprise you.";
+  sim.msg = "";
+  legend();
+  document.querySelector(".scene").classList.toggle("moving", running);
+  new ResizeObserver(resize).observe(cv);
+  window.addEventListener("resize", resize);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawAll);
+  resize(); schedule(); requestAnimationFrame(slide);
+})();
+</script>
+</body>
+</html>

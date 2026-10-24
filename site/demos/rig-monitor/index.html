@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rig Fault Monitor</title>
+<meta name="description" content="Replay of a fault monitor on a water-circulation test rig: it finds faults and says which sensor and what kind of change.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Schibsted+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff; --ink: #0e0b14; --muted: #5d5868; --faint: #ebe8f0; --line: #d6d1de;
+  --accent: #7a1cff; --neon: #39ff14; --wash: rgba(57, 255, 20, 0.16); --vwash: rgba(122, 28, 255, 0.13);
+  --water: #c9d6f2; --water-edge: #7f97cf; --steel: #8a8496;
+  --display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Newsreader", Georgia, "Times New Roman", serif;
+  --data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font-family: var(--body); font-size: 1.08rem; line-height: 1.55; }
+.wrap { max-width: 72rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) max(16px, env(safe-area-inset-left, 0px)) 3rem; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.eyebrow { font-family: var(--data); font-size: 0.76rem; color: var(--muted); letter-spacing: 0.02em; }
+h1 { font-size: clamp(2rem, 5.4vw, 3.4rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; margin-top: 0.5rem; max-width: 20ch; }
+h1 em { font-style: normal; color: var(--accent); background: linear-gradient(transparent 62%, var(--neon) 62%, var(--neon) 92%, transparent 92%); }
+.lede { color: var(--muted); max-width: 44rem; margin-top: 1rem; font-size: clamp(1.08rem, 2vw, 1.25rem); }
+.replay-tag { display: inline-block; margin-top: 1rem; font-family: var(--data); font-size: 0.74rem; border: 1px solid var(--ink); border-radius: 999px; padding: 0.2rem 0.7rem; }
+.tabs { display: flex; gap: 0.5rem; margin: 2rem 0 1.2rem; flex-wrap: wrap; }
+.tab { font-family: var(--display); font-weight: 500; font-size: 0.98rem; border: 1.5px solid var(--ink); background: var(--bg); color: var(--ink);
+       padding: 0.55rem 1.1rem; border-radius: 999px; cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.tab:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.grid { display: grid; grid-template-columns: minmax(16rem, 25rem) 1fr; gap: clamp(1rem, 3vw, 2rem); align-items: start; }
+.panel { border: 1px solid var(--line); border-radius: 8px; padding: 1rem; background: var(--bg); }
+.rig svg { width: 100%; height: auto; display: block; }
+.controls { display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem; }
+.hint { font-family: var(--data); font-size: 0.72rem; color: var(--muted); line-height: 1.45; }
+.btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn { font-family: var(--display); font-weight: 500; font-size: 0.98rem; border: 0; background: var(--accent); color: var(--bg);
+       padding: 0.7rem 1.1rem; border-radius: 999px; cursor: pointer; min-height: 2.75rem; }
+.btn:hover { background: var(--neon); color: var(--ink); }
+.btn.ghost { background: var(--bg); color: var(--ink); border: 1.5px solid var(--ink); }
+.btn.ghost:hover { background: var(--wash); }
+.cards { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 0.6rem; margin-bottom: 0.8rem; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.8rem; min-width: 0; }
+.card .k { font-family: var(--display); font-size: 0.82rem; color: var(--muted); }
+.card .v { font-family: var(--data); font-size: clamp(1.05rem, 2.4vw, 1.35rem); font-weight: 500; margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .v.alert { color: var(--accent); }
+.card .s { font-family: var(--data); font-size: 0.7rem; color: var(--muted); }
+.meter { height: 0.5rem; background: var(--faint); border-radius: 999px; margin-top: 0.4rem; overflow: hidden; }
+.meter > i { display: block; height: 100%; width: 0; background: var(--neon); border-right: 2px solid var(--ink); transition: width 0.25s ease-out; }
+.meter.high > i { background: var(--accent); }
+.plot canvas { width: 100%; display: block; }
+.legend { display: flex; gap: 0.4rem 1.1rem; flex-wrap: wrap; font-family: var(--data); font-size: 0.72rem; color: var(--muted); margin-top: 0.6rem; }
+.legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.sw { display: inline-block; width: 1.3rem; height: 0.7rem; border-radius: 2px; }
+.findings { margin-top: 1rem; }
+.findings h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+.log { font-family: var(--data); font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem; }
+.flist { list-style: none; padding: 0; margin: 0.6rem 0 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.finding { padding: 0.6rem 0.8rem; border-left: 4px solid var(--neon); background: var(--wash); font-family: var(--display); font-size: 0.96rem; cursor: pointer; }
+.finding.cur { border-left-color: var(--accent); background: var(--vwash); }
+.finding small { display: block; font-family: var(--data); font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+.finding .when { font-family: var(--data); font-size: 0.72rem; color: var(--muted); display: block; }
+.finding.none { border-left-color: var(--line); background: var(--bg); color: var(--muted); cursor: default; }
+.explain { margin-top: 2.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.explain h3 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.01em; }
+.explain p { color: var(--muted); font-size: 1rem; margin-top: 0.4rem; }
+.foot { margin-top: 2rem; font-family: var(--data); font-size: 0.72rem; color: var(--muted); border-top: 1px solid var(--faint); padding-top: 1rem; }
+.foot a { color: inherit; }
+/* rig drawing (twin style) */
+.pipe { fill: none; stroke: var(--steel); stroke-width: 7; stroke-linejoin: round; stroke-linecap: round; }
+.stream { stroke: var(--water-edge); stroke-linecap: round; fill: none; stroke-dasharray: 5 6; stroke-width: 2.6; }
+.flowing .stream { animation: flow var(--fd, 0.6s) linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -11; } }
+.tank { fill: none; stroke: var(--ink); stroke-width: 2.2; }
+.water { fill: var(--water); }
+.part { fill: var(--bg); stroke: var(--ink); stroke-width: 2; }
+.lbl { font-family: var(--data); font-size: 10px; fill: var(--muted); }
+.lbl.ink { fill: var(--ink); }
+.lbl.vi { fill: var(--accent); }
+.impeller { transform-box: fill-box; transform-origin: center; }
+.flowing .impeller { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sensor rect { fill: var(--bg); stroke: var(--ink); stroke-width: 1.4; transition: fill 0.2s; }
+.sensor text { font-family: var(--data); font-size: 9.5px; fill: var(--ink); }
+.sensor line { stroke: var(--ink); stroke-width: 1; }
+.sensor.out rect { fill: var(--neon); }
+.sensor.named rect { fill: var(--accent); stroke: var(--ink); }
+.sensor.named text { fill: var(--bg); }
+.valve path.body { fill: var(--bg); stroke: var(--ink); stroke-width: 1.8; transition: fill 0.3s; }
+.valve.closed path.body { fill: var(--ink); }
+.valve .stem { transition: transform 0.4s ease-out; transform-box: fill-box; transform-origin: bottom center; }
+.valve.closed .stem { transform: rotate(90deg); }
+.drop { fill: var(--water-edge); opacity: 0; }
+.leaking .drop { animation: drip 1.1s ease-in infinite; }
+.leaking .drop:nth-child(2) { animation-delay: 0.37s; } .leaking .drop:nth-child(3) { animation-delay: 0.74s; }
+@keyframes drip { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(26px); } }
+.shaking { animation: shake 0.09s linear infinite; }
+@keyframes shake { 0% { transform: translate(0, 0); } 25% { transform: translate(1.4px, -0.8px); } 50% { transform: translate(-1.2px, 0.9px); } 75% { transform: translate(0.9px, 1px); } }
+.wiggle { fill: none; stroke: var(--accent); stroke-width: 1.4; opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .flowing .stream, .flowing .impeller, .shaking { animation: none; }
+  .leaking .drop { animation: none; opacity: 1; }
+  .meter > i, .sensor rect, .valve .stem, .valve path.body { transition: none; }
+}
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+  .rig svg { max-width: 28rem; margin: 0 auto; }
+  .explain { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .cards { grid-template-columns: 1fr 1fr; }
+  .cards .card:first-child { grid-column: span 2; }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="eyebrow">Fault monitoring · SKAB water-circulation test rig · replay of the model's analysis</p>
+  <h1>A test rig whose monitor <em>says what broke</em></h1>
+  <p class="lede">A pump circulates water from a tank through a loop of pipes. Eight sensors report once a second. Engineers
+    broke the rig on purpose: they closed valves, let water leak, unbalanced the rotor. A small model of the healthy rig,
+    learned from normal running only, watches every reading. When the rig leaves its healthy band, the monitor writes down
+    which sensor, what kind of change, and how large.</p>
+  <span class="replay-tag">Replay: the model's outputs were computed offline and are played back here</span>
+
+  <div class="tabs" role="tablist" aria-label="Experiment" id="tabs"></div>
+
+  <div class="grid">
+    <section aria-label="Schematic and findings">
+      <div class="panel rig">
+        <svg id="rig" viewBox="0 0 360 336" role="img" aria-labelledby="rig-title">
+          <title id="rig-title">Schematic: tank, inlet valve, pump driven by a motor, riser, outlet valve, flow meter, back to the tank; eight sensors</title>
+          <!-- pipes -->
+          <path class="pipe" d="M262 246 H162"/>
+          <path class="pipe" d="M142 222 V58 H312 V150"/>
+          <path id="s-in" class="stream" d="M262 246 H162"/>
+          <path id="s-up" class="stream" d="M142 222 V58 H312 V158"/>
+          <!-- tank -->
+          <rect x="266" y="196" width="80" height="78" class="water" id="tank-water"/>
+          <path d="M264 150 V276 H348 V150" class="tank"/>
+          <text x="306" y="292" class="lbl ink" text-anchor="middle">tank</text>
+          <!-- leak drops under the inlet pipe -->
+          <g id="leak"><ellipse class="drop" cx="242" cy="254" rx="2" ry="3"/><ellipse class="drop" cx="242" cy="254" rx="2" ry="3"/><ellipse class="drop" cx="242" cy="254" rx="2" ry="3"/></g>
+          <text id="leak-lbl" x="242" y="296" class="lbl vi" text-anchor="middle" opacity="0">leak</text>
+          <!-- inlet valve (valve 1) -->
+          <g class="valve" id="v1" transform="translate(206 246)">
+            <path class="body" d="M-10 -8 L10 8 V-8 L-10 8 Z"/>
+            <g class="stem"><line x1="0" y1="0" x2="0" y2="-16" stroke="var(--ink)" stroke-width="1.8"/><line x1="-6" y1="-16" x2="6" y2="-16" stroke="var(--ink)" stroke-width="2.4"/></g>
+          </g>
+          <text x="206" y="268" class="lbl" text-anchor="middle">inlet valve</text>
+          <!-- outlet valve (valve 2) -->
+          <g class="valve" id="v2" transform="translate(244 58)">
+            <path class="body" d="M-10 -8 L10 8 V-8 L-10 8 Z"/>
+            <g class="stem"><line x1="0" y1="0" x2="0" y2="16" stroke="var(--ink)" stroke-width="1.8"/><line x1="-6" y1="16" x2="6" y2="16" stroke="var(--ink)" stroke-width="2.4"/></g>
+          </g>
+          <text x="244" y="88" class="lbl" text-anchor="middle">outlet valve</text>
+          <!-- flow meter on the top pipe -->
+          <circle cx="196" cy="58" r="9" class="part"/><text x="196" y="61.5" class="lbl ink" text-anchor="middle">F</text>
+          <!-- thermocouple -->
+          <line x1="288" y1="58" x2="288" y2="72" stroke="var(--ink)" stroke-width="2"/>
+          <!-- drive cabinet and cable -->
+          <rect x="18" y="62" width="58" height="62" rx="4" class="part"/>
+          <text x="47" y="96" class="lbl ink" text-anchor="middle">drive</text>
+          <path d="M47 124 V212" stroke="var(--ink)" stroke-width="1.4" fill="none"/>
+          <!-- motor + pump, shaken on rotor faults -->
+          <g id="machine">
+            <rect x="18" y="212" width="80" height="50" rx="6" class="part"/>
+            <path d="M30 218 V256 M40 218 V256 M50 218 V256 M60 218 V256 M70 218 V256" stroke="var(--steel)" stroke-width="1.4"/>
+            <text x="58" y="276" class="lbl ink" text-anchor="middle">motor</text>
+            <rect x="98" y="232" width="24" height="12" class="part"/>
+            <circle cx="142" cy="240" r="20" class="part"/>
+            <g class="impeller"><path d="M142 226 V254 M128 240 H156 M132 230 L152 250 M152 230 L132 250" stroke="var(--ink)" stroke-width="1.5"/></g>
+            <text x="142" y="276" class="lbl ink" text-anchor="middle">pump</text>
+          </g>
+          <path id="wig" class="wiggle" d="M164 214 q4 -4 8 0 t8 0 M164 222 q4 -4 8 0 t8 0 M6 206 q4 -4 8 0 t8 0"/>
+          <!-- sensors: badge + leader line; index = data channel -->
+          <g id="sensors"></g>
+          <text x="4" y="331" class="lbl" style="font-size:9.3px">green: outside the healthy band · violet: named in a finding</text>
+        </svg>
+        <div class="controls">
+          <div class="btns">
+            <button class="btn" id="play">Play</button>
+            <button class="btn ghost" id="restart">Restart</button>
+            <button class="btn ghost" id="end">Jump to end</button>
+          </div>
+          <p class="hint" id="exp-note"></p>
+        </div>
+      </div>
+      <div class="panel findings">
+        <h2>Findings</h2>
+        <p class="log" id="log"></p>
+        <ul class="flist" id="flist" aria-live="polite"></ul>
+        <p class="hint" style="margin-top:0.7rem">σ is the sensor's normal wobble, learned from the first 400 seconds of each run.
+          "What it suggests" is a fixed lookup from sensor and direction, not part of the model.</p>
+      </div>
+    </section>
+
+    <section aria-label="Sensors, healthy band and fault probability">
+      <div class="cards">
+        <div class="card"><div class="k">Rig status</div><div class="v" id="c-status">–</div><div class="s" id="c-status-s">–</div></div>
+        <div class="card"><div class="k">Chance something changed</div><div class="v" id="c-p">–</div><div class="meter" id="c-pm"><i></i></div></div>
+        <div class="card"><div class="k">Time into the run</div><div class="v" id="c-t">–</div><div class="s" id="c-clock">–</div></div>
+      </div>
+      <div class="panel plot">
+        <canvas id="plot" height="700" role="img" aria-label="Timeline of the chance that something changed, with alarms, and the eight sensors with their healthy-rig bands"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="explain">
+    <div><h3>A model of the healthy rig</h3><p>About 140 numbers describe how each sensor normally wobbles and how sensors move
+      together: motor current with voltage, the two vibration sensors with each other. They were learned from normal running only;
+      the model has never seen a fault. The violet band is where it expects each reading, one second ahead.</p></div>
+    <div><h3>A short list of explanations</h3><p>Every second the monitor weighs "all normal" against a few named changes: a
+      sensor jumped, started drifting, became noisier or calmer, or several jumped together. The timeline shows how much each
+      explanation is winning. When "something changed" passes 50 %, it raises an alarm and writes the winner as a sentence.</p></div>
+    <div><h3>Cautious by design</h3><p>Its confidence is tempered: tuned on normal data so that it raises about one false alarm
+      per 20 minutes of healthy running. On SKAB's 34 faults it scores 42.5 on the benchmark's own scale, above every published
+      entry, deep networks included. It still misses small valve changes, and its first message names the expected sensor in
+      about two thirds of the faults.</p></div>
+  </section>
+  <p class="foot" id="foot">Data: SKAB, Skoltech Anomaly Benchmark v0.9 (Katser and Kozitsin, 2020), DOI
+    <a href="https://doi.org/10.34740/KAGGLE/DSV/1693952">10.34740/KAGGLE/DSV/1693952</a>, licensed GPL-3.0,
+    <a href="https://github.com/waico/SKAB">github.com/waico/SKAB</a>. This page ships the model's analysis of four SKAB files
+    (sensor values, bands, probabilities, findings) under the same licence. Schematic simplified from SKAB's testbed photo;
+    sensor positions approximate. Marco Hidalgo-Araya.</p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const C = { ink: "#0e0b14", muted: "#5d5868", faint: "#ebe8f0", line: "#d6d1de", vi: "#7a1cff", vi2: "#b98aff", grey: "#8a8496",
+              neon: "#39ff14", band: "rgba(122,28,255,0.16)", lab: "rgba(235,232,240,0.75)" };
+  const FILES = [["valve", "Valve closure"], ["leak", "Leak"], ["rotor", "Rotor imbalance"], ["normal", "Normal running"]];
+  // sensor badges: [channel, label, x, y, anchor x, anchor y]
+  const BADGE = [[0, "vibration 1", 62, 178, 74, 212], [1, "vibration 2", 120, 290, 142, 260], [2, "current", 84, 64, 76, 76],
+                 [3, "pressure", 152, 130, 142, 141], [4, "motor temp", 8, 290, 30, 262], [5, "water temp", 262, 14, 288, 58],
+                 [6, "voltage", 84, 96, 76, 108], [7, "flow rate", 160, 14, 196, 49]];
+  const BW = 66, BH = 20;
+  $("sensors").innerHTML = BADGE.map(([i, t, x, y, ax, ay]) => {
+    const cx = Math.max(x, Math.min(x + BW, ax)), cy = ay < y ? y : ay > y + BH ? y + BH : y + BH / 2;
+    return `<g class="sensor" id="sn${i}"><line x1="${cx}" y1="${cy}" x2="${ax}" y2="${ay}"/><rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="4"/>` +
+           `<text x="${x + BW / 2}" y="${y + 13.5}" text-anchor="middle">${t}</text></g>`;
+  }).join("");
+
+  let D = null, rk = 0, running = false, timer = null, cur = "valve", groups = [];
+  const cache = {};
+  async function load(key) {
+    if (!cache[key]) {
+      const d = await (await fetch("data/" + key + ".json")).json();
+      d.ch = d.channels.map(c => {
+        const y = c.z.map(v => c.mu + c.sd * v), lo = c.m.map((m, i) => c.mu + c.sd * (m - 2 * c.s[i])), hi = c.m.map((m, i) => c.mu + c.sd * (m + 2 * c.s[i]));
+        const srt = y.slice().sort((a, b) => a - b), q = p => srt[Math.floor(p * (srt.length - 1))];
+        let a = q(0.002), b = q(0.998); const pad = Math.max((b - a) * 0.15, c.sd * 1.5); a -= pad; b += pad;
+        const out = c.z.map((z, i) => i > 20 && Math.abs(z - c.m[i]) > 3 * c.s[i]);
+        return { ...c, y, lo, hi, a, b, out };
+      });
+      d.groups = group(d);
+      cache[key] = d;
+    }
+    return cache[key];
+  }
+  // merge repeated findings on the same sensor, same kind and direction, within 30 s, into one episode
+  function group(d) {
+    const G = [];
+    for (const a of d.alarms) {
+      const g = G[G.length - 1], sg = Math.sign(a.size);
+      if (g && g.ch === a.ch && g.kind === a.kind && g.sg === sg && a.t - g.t1 <= 30) { g.items.push(a); g.t1 = a.t; continue; }
+      G.push({ t0: a.t, t1: a.t, ch: a.ch, kind: a.kind, sg, items: [a] });
+    }
+    for (const g of G) {
+      const n = g.items.length, name = d.channels[g.ch].name, tot = g.items.reduce((s, a) => s + a.size, 0);
+      if (n > 1 && g.kind === "level step") g.text = `${name} ${g.sg < 0 ? "fell" : "rose"} ${Math.abs(tot).toFixed(0)} σ in ${n} steps over ${g.t1 - g.t0} s`;
+      else if (n > 1) g.text = `${g.items[0].text} (${n} times in ${g.t1 - g.t0} s)`;
+      else g.text = g.items[0].text;
+      g.hint = suggest(name, g.kind, g.sg);
+    }
+    return G;
+  }
+  function suggest(name, kind, sg) {
+    const up = sg > 0 || kind === "variance up", dn = sg < 0 || kind === "variance down";
+    if (name === "flow rate") return up ? "more water is moving: flow restored, or water added" : "less water is moving: a valve closing, a blockage or a leak";
+    if (name.startsWith("vibration")) return kind === "variance down" || (dn && kind !== "variance up") ? "the pump's shaking settles" : "the pump shakes more: rotor imbalance or a loose mount";
+    if (name === "pressure") return "pressure after the pump changed: a valve or cavitation";
+    if (name === "fluid temperature") return up ? "the water is warming" : "the water is cooling";
+    if (name === "motor temperature") return up ? "the motor is heating up" : "the motor is cooling, often after a flow change";
+    if (name === "motor current" || name === "motor voltage") return "the motor's electrical load changed";
+    return "";
+  }
+  const fmtT = s => { const m = Math.floor(s / 60), r = s % 60; return m + ":" + String(r).padStart(2, "0"); };
+  function clock(t) {
+    const p = D.start.match(/(\d+):(\d+):(\d+)/); if (!p) return "";
+    let s = (+p[1]) * 3600 + (+p[2]) * 60 + (+p[3]) + t; s %= 86400;
+    return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, "0")).join(":");
+  }
+
+  // ------------------------------------------------------------------ canvas
+  const cv = $("plot"), ctx = cv.getContext("2d");
+  let PW = 600, PH = 700, dpr = 1;
+  function resize() {
+    dpr = window.devicePixelRatio || 1; PW = cv.clientWidth; PH = PW < 520 ? 860 : 720;
+    cv.style.height = PH + "px"; cv.width = Math.round(PW * dpr); cv.height = Math.round(PH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw();
+  }
+  const PAD = { l: 8, r: 8 };
+  function layout() {
+    const top = 24, th = PW < 520 ? 90 : 110, gap = 34, cols = PW < 520 ? 1 : 2, rows = 8 / cols, colGap = 18;
+    const smTop = top + th + gap + 6, rowGap = 30, sh = (PH - smTop - 26 - (rows - 1) * rowGap) / rows;
+    const cw = (PW - PAD.l - PAD.r - (cols - 1) * colGap) / cols;
+    const sm = [];
+    for (let i = 0; i < 8; i++) { const c = cols === 2 ? i % 2 : 0, r = cols === 2 ? Math.floor(i / 2) : i;
+      sm.push({ x: PAD.l + c * (cw + colGap), y: smTop + r * (sh + rowGap), w: cw, h: sh }); }
+    return { tl: { x: PAD.l + 34, y: top, w: PW - PAD.l - PAD.r - 34, h: th }, sm };
+  }
+  function title(s, x, y, right) {
+    ctx.fillStyle = C.ink; ctx.font = "500 12px 'Schibsted Grotesk', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(s, x, y);
+    if (right) { ctx.font = "11px 'IBM Plex Mono', monospace"; ctx.fillStyle = C.vi; ctx.textAlign = "right"; ctx.fillText(right[0], right[1], y); }
+  }
+  function labelBand(X, p) {
+    const L = D.labels;
+    for (let i = 0; i + 1 < L.length; i += 2) { ctx.fillStyle = C.lab; ctx.fillRect(X(L[i]), p.y, X(L[i + 1]) - X(L[i]), p.h); }
+  }
+  function draw() {
+    ctx.clearRect(0, 0, PW, PH);
+    if (!D) return;
+    const Lo = layout(), T = D.T, k = rk + 1;
+    // timeline
+    const p = Lo.tl, X = t => p.x + t / (T - 1) * p.w, Y = v => p.y + p.h - v * p.h;
+    title(PW < 520 ? "Chance something changed" : "Chance that something changed, and which explanation is winning", PAD.l, p.y - 12);
+    labelBand(X, p);
+    ctx.strokeStyle = C.line; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(X(D.ntrain), p.y); ctx.lineTo(X(D.ntrain), p.y + p.h); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = "10px 'IBM Plex Mono', monospace"; ctx.fillStyle = C.muted; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("← first 400 s: learning normal levels", X(0) + 3, p.y + 3);
+    if (D.labels.length) ctx.fillText("fault running (SKAB log)", X(D.labels[0]) + 3, p.y + 16);
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const v of [0, 0.5, 1]) { ctx.strokeStyle = v === 0.5 ? C.ink : C.faint; ctx.setLineDash(v === 0.5 ? [3, 3] : []); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(p.x, Y(v)); ctx.lineTo(p.x + p.w, Y(v)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = C.muted; ctx.fillText(v * 100 + "%", p.x - 4, Y(v)); }
+    // stacked explanation probabilities
+    const S = [[D.pstep, C.vi, "a jump"], [D.pramp, C.vi2, "a drift"], [D.pvar, C.neon, "noisier or calmer"], [D.prel, C.grey, "a relation changed"]];
+    const base = new Float64Array(k);
+    for (const [arr, col] of S) {
+      if (!arr.some(v => v > 0)) continue;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X(0), Y(base[0]));
+      for (let i = 0; i < k; i++) ctx.lineTo(X(i), Y(base[i] + arr[i]));
+      for (let i = k - 1; i >= 0; i--) ctx.lineTo(X(i), Y(base[i]));
+      ctx.closePath(); ctx.fill();
+      for (let i = 0; i < k; i++) base[i] += arr[i];
+    }
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i < k; i++) { const v = 1 - D.pN[i]; i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); } ctx.stroke();
+    ctx.fillStyle = C.ink; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = "10px 'IBM Plex Mono', monospace";
+    ctx.fillText("alarm", p.x + p.w - 36, Y(0.5) - 1);
+    for (const a of D.alarms) if (a.t <= rk) { ctx.fillStyle = C.vi; ctx.beginPath(); ctx.moveTo(X(a.t), p.y - 1); ctx.lineTo(X(a.t) - 4, p.y - 8); ctx.lineTo(X(a.t) + 4, p.y - 8); ctx.closePath(); ctx.fill(); }
+    // time axis
+    ctx.fillStyle = C.muted; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.font = "10.5px 'IBM Plex Mono', monospace";
+    const step = T > 900 ? (PW < 520 ? 600 : 300) : 300;
+    for (let s = 0; s < T; s += step) ctx.fillText(fmtT(s), X(s), p.y + p.h + 4);
+    // small multiples
+    for (let i = 0; i < 8; i++) {
+      const q = Lo.sm[i], c = D.ch[i], Xs = t => q.x + t / (T - 1) * q.w, Ys = v => q.y + q.h - (Math.max(c.a, Math.min(c.b, v)) - c.a) / (c.b - c.a) * q.h;
+      const named = activeNamed().has(i);
+      title(c.name + " (" + c.unit + ")", q.x, q.y - 10, [fmtNum(c.y[rk]), q.x + q.w]);
+      if (named) { ctx.fillStyle = C.vi; ctx.fillRect(q.x - 6, q.y, 3, q.h); }
+      ctx.strokeStyle = C.faint; ctx.lineWidth = 1; ctx.strokeRect(q.x, q.y, q.w, q.h);
+      labelBand(Xs, q);
+      ctx.save(); ctx.beginPath(); ctx.rect(q.x, q.y, q.w, q.h); ctx.clip();
+      ctx.fillStyle = C.band; ctx.beginPath(); let started = false;
+      for (let t = 21; t < k; t++) { started ? ctx.lineTo(Xs(t), Ys(c.hi[t])) : ctx.moveTo(Xs(t), Ys(c.hi[t])); started = true; }
+      for (let t = k - 1; t >= 21; t--) ctx.lineTo(Xs(t), Ys(c.lo[t]));
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.beginPath();
+      for (let t = 0; t < k; t++) t ? ctx.lineTo(Xs(t), Ys(c.y[t])) : ctx.moveTo(Xs(t), Ys(c.y[t])); ctx.stroke();
+      for (const a of D.alarms) if (a.t <= rk && (a.ch === i || a.partner === i || a.kind === "joint level step")) {
+        ctx.strokeStyle = a.ch === i ? C.vi : C.vi2; ctx.lineWidth = a.ch === i ? 1.6 : 1; ctx.beginPath(); ctx.moveTo(Xs(a.t), q.y); ctx.lineTo(Xs(a.t), q.y + q.h); ctx.stroke(); }
+      ctx.restore();
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Xs(rk), q.y); ctx.lineTo(Xs(rk), q.y + q.h); ctx.stroke();
+    }
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(rk), p.y - 2); ctx.lineTo(X(rk), p.y + p.h); ctx.stroke();
+    side();
+  }
+  function fmtNum(v) { const a = Math.abs(v); return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3); }
+  function activeNamed() {    // sensors named by a finding in the last 40 s
+    const s = new Set();
+    for (const a of D.alarms) if (a.t <= rk && rk - a.t <= 40) { s.add(a.ch); if (a.partner >= 0) s.add(a.partner); }
+    return s;
+  }
+
+  // ------------------------------------------------------------------ schematic, cards, findings
+  function side() {
+    const named = activeNamed(), p = 1 - D.pN[rk];
+    for (let i = 0; i < 8; i++) {
+      const g = $("sn" + i), c = D.ch[i];
+      g.classList.toggle("named", named.has(i));
+      g.classList.toggle("out", !named.has(i) && c.out.slice(Math.max(0, rk - 2), rk + 1).some(Boolean));
+    }
+    // physical scene: from the SKAB log (what the experimenters did) and the measured flow and vibration
+    const inFault = D.labels.some((v, j) => j % 2 === 0 && rk >= v && rk < D.labels[j + 1]);
+    $("v1").classList.toggle("closed", D.key === "valve" && inFault);
+    $("rig").classList.toggle("leaking", D.key === "leak" && inFault);
+    $("leak-lbl").setAttribute("opacity", D.key === "leak" && inFault ? 1 : 0);
+    const fl = D.ch[7], rel = Math.max(0.15, Math.min(1.6, fl.y[rk] / Math.max(1e-6, fl.mu)));
+    $("rig").style.setProperty("--fd", (0.6 / rel).toFixed(2) + "s");
+    const vib = Math.max(Math.abs(D.ch[0].z[rk]), Math.abs(D.ch[1].z[rk]));
+    $("machine").classList.toggle("shaking", running && !reduce && vib > 4);
+    $("wig").style.opacity = vib > 4 ? Math.min(1, vib / 10) : 0;
+    // cards
+    const last = D.alarms.filter(a => a.t <= rk).pop();
+    const alert = p >= 0.5 || (last && rk - last.t <= 40);
+    $("c-status").textContent = alert && last ? "Change: " + D.channels[last.ch].name : alert ? "Something changed" : "Normal";
+    $("c-status").classList.toggle("alert", !!alert);
+    $("c-status-s").textContent = last ? "last finding " + fmtT(last.t) : "no finding yet";
+    $("c-p").textContent = Math.round(100 * p) + " %";
+    const m = $("c-pm"); m.firstElementChild.style.width = (100 * p).toFixed(1) + "%"; m.classList.toggle("high", p >= 0.5);
+    $("c-t").textContent = fmtT(rk); $("c-clock").textContent = "clock " + clock(rk) + (rk < D.ntrain ? " · learning" : "");
+    // findings list
+    const shown = D.groups.filter(g => g.t0 <= rk);
+    const key = shown.map(g => g.t0 + ":" + (g.t1 <= rk ? g.items.length : g.items.filter(a => a.t <= rk).length)).join(",") + "|" + [...named].join();
+    if (key !== $("flist").dataset.k) {
+      $("flist").dataset.k = key;
+      $("flist").innerHTML = shown.length ? shown.slice().reverse().map(g => {
+        const done = g.items.filter(a => a.t <= rk), t = g.t1 <= rk ? g.text : (done.length > 1 ? partial(g, done) : done[0].text);
+        return `<li class="finding${rk - done[done.length - 1].t <= 40 ? " cur" : ""}" data-t="${g.t0}"><span class="when">${fmtT(g.t0)} · ${clock(g.t0)}${g.t0 < D.ntrain ? " · during the learning period" : ""}</span>${t}<small>What it suggests: ${g.hint}</small></li>`;
+      }).join("") : `<li class="finding none">${rk < D.T - 1 ? "Nothing yet. The monitor has not raised an alarm." : "No alarm in this run."}</li>`;
+    }
+  }
+  function partial(g, done) { const d = { ...g, items: done, t1: done[done.length - 1].t }; const n = done.length, tot = done.reduce((s, a) => s + a.size, 0);
+    return g.kind === "level step" ? `${D.channels[g.ch].name} ${g.sg < 0 ? "fell" : "rose"} ${Math.abs(tot).toFixed(0)} σ in ${n} steps over ${d.t1 - g.t0} s` : `${done[0].text} (${n} times)`; }
+  $("flist").addEventListener("click", e => { const li = e.target.closest("li[data-t]"); if (!li) return; rk = Math.min(D.T - 1, +li.dataset.t + 5); draw(); });
+
+  function legend() {
+    const L = [["line", C.ink, "sensor reading"], ["band", C.band, "healthy-rig band (95 %)"], ["vline", C.vi, "alarm naming this sensor"],
+               ["band", C.lab, "fault running (SKAB log)"], ["band", C.vi, "a jump"], ["band", C.vi2, "a drift"], ["band", C.neon, "noisier or calmer"]];
+    if (D && D.prel.some(v => v > 0)) L.push(["band", C.grey, "a relation changed"]);
+    $("legend").innerHTML = L.map(([k, c, t]) => {
+      const sw = k === "line" ? `<i class="sw" style="height:2px;background:${c}"></i>` : k === "vline" ? `<i class="sw" style="width:2px;height:0.9rem;background:${c}"></i>` :
+                 `<i class="sw" style="background:${c};border:1px solid #d6d1de"></i>`;
+      return `<span>${sw}${t}</span>`;
+    }).join("");
+  }
+
+  // ------------------------------------------------------------------ playback
+  function schedule() {
+    clearInterval(timer); timer = null;
+    $("rig").classList.toggle("flowing", running || reduce === false);
+    if (!running) return;
+    timer = setInterval(() => {
+      rk = Math.min(D.T - 1, rk + (reduce ? 6 : (rk < D.ntrain - 40 ? 6 : 2)));
+      if (rk >= D.T - 1) { running = false; $("play").textContent = "Play"; schedule(); }
+      draw();
+    }, reduce ? 250 : 60);
+  }
+  $("play").onclick = () => { if (rk >= D.T - 1) rk = 0; running = !running; $("play").textContent = running ? "Pause" : "Play"; schedule(); draw(); };
+  $("restart").onclick = () => { rk = 0; draw(); };
+  $("end").onclick = () => { rk = D.T - 1; running = false; $("play").textContent = "Play"; schedule(); draw(); };
+  async function choose(key) {
+    cur = key;
+    for (const [k] of FILES) $("tab-" + k).setAttribute("aria-selected", String(k === key));
+    D = await load(key); rk = 0;
+    $("exp-note").textContent = D.note + (D.labels.length ? ` The SKAB log marks the fault from ${fmtT(D.labels[0])} to ${fmtT(D.labels[D.labels.length - 1])}.` : "");
+    if (key === "rotor") $("exp-note").textContent += " A known limit: this fast, large change is reported as a staircase of many smaller jumps.";
+    if (key === "normal") $("exp-note").textContent += " Part of this run was used to learn the healthy rig, so it is a check of calm behaviour, not a test.";
+    $("log").textContent = `Experiment: ${D.title.toLowerCase()} (${D.file}). Findings appear as the replay reaches them; click one to jump there.`;
+    $("flist").dataset.k = "";
+    legend();
+    running = !reduce; $("play").textContent = running ? "Pause" : "Play"; schedule(); draw();
+  }
+  $("tabs").innerHTML = FILES.map(([k, t]) => `<button class="tab" role="tab" id="tab-${k}" aria-selected="false">${t}</button>`).join("");
+  for (const [k] of FILES) $("tab-" + k).onclick = () => choose(k);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { clearInterval(timer); timer = null; } else schedule(); });
+  fetch("data/meta.json").then(r => r.json()).then(m => {
+    $("foot").insertAdjacentHTML("afterbegin", `Model round ${m.round} of the SKAB monitor (TMP-RobustKalman, skab_rig), exported by export.jl. `);
+  }).catch(() => {});
+  new ResizeObserver(resize).observe(cv);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+  choose("valve").then(resize);
+})();
+</script>
+</body>
+</html>
