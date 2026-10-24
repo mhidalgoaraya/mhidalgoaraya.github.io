@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>AIDA-2 (EUM + SEM)</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #ffffff; --ink: #1c1c1e; --ink2: #6e6e73; --ink3: #aeaeb2; --line: #e5e5ea;
+  --fill: #ececf0; --accent: #007aff; --green: #34c759; --red: #ff3b30; --orange: #ff9500; --knob: #ffffff;
+  --spec0: #f4f5f9; --spec1: #007aff; --spec2: #0b1f4d; --gray1: #8e8e93;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000; --card: #1c1c1e; --ink: #f5f5f7; --ink2: #98989d; --ink3: #636366; --line: #2c2c2e;
+    --fill: #2c2c2e; --accent: #0a84ff; --green: #30d158; --red: #ff453a; --orange: #ff9f0a; --knob: #f5f5f7;
+    --spec0: #161618; --spec1: #0a84ff; --spec2: #dcebff; --gray1: #8e8e93; --shadow: none;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); overflow: hidden;
+  font: 15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none;
+}
+.app {
+  height: 100vh; height: 100dvh; display: flex; flex-direction: column; gap: 12px; margin: 0 auto; max-width: 1180px;
+  padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 14px);
+}
+
+/* header */
+header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; flex: none; }
+.title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
+.sub { font-size: 13px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ink3); margin-right: 5px;
+  vertical-align: 1px; }
+.sub .dot.on { background: var(--green); }
+.tools { display: flex; gap: 8px; justify-content: flex-end; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 99px; background: var(--card);
+  color: var(--ink); font: inherit; font-size: 14px; font-weight: 500; padding: 7px 12px; cursor: pointer;
+  box-shadow: var(--shadow); position: relative; overflow: hidden; white-space: nowrap; }
+.chip:disabled { color: var(--ink3); cursor: default; }
+.chip svg, .chip .lbl { position: relative; }
+.chip svg { width: 15px; height: 15px; }
+.chip .prog { position: absolute; inset: 0 auto 0 0; width: 0; background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.chip.need { background: var(--accent); color: #fff; animation: ring 2s infinite; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+                  70%, 100% { box-shadow: 0 0 0 9px transparent; } }
+.chip.done .ok { color: var(--green); font-weight: 700; }
+.calcard { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; flex: none;
+  background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+.calcard[hidden] { display: none; }
+.calcard .t { flex: 1; font-size: 13px; color: var(--ink2); }
+.calcard .t b { display: block; font-size: 15px; color: var(--ink); margin-bottom: 1px; }
+.calcard button { flex: none; border: 0; border-radius: 11px; background: var(--accent); color: #fff; font: inherit;
+  font-weight: 600; padding: 10px 16px; cursor: pointer; position: relative; overflow: hidden; }
+.calcard button .prog { position: absolute; inset: 0 auto 0 0; width: 0; background: rgba(255,255,255,.25); }
+.calcard button span { position: relative; }
+.chip.rec .rd { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+.chip.rec.on { background: var(--red); color: #fff; }
+.chip.rec.on .rd { background: #fff; animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+
+/* segmented controls */
+.seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; background: var(--fill); border-radius: 11px;
+  padding: 2px; flex: none; }
+.seg button { position: relative; z-index: 1; border: 0; background: none; font: inherit; font-weight: 600;
+  color: var(--ink); padding: 10px 0; border-radius: 9px; cursor: pointer; }
+.seg .thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px); background: var(--card);
+  border-radius: 9px; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.04);
+  transition: transform .28s cubic-bezier(.3,.7,.2,1); }
+.seg.right .thumb { transform: translateX(100%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg .thumb { background: #636366; } }
+.seg.small { border-radius: 9px; }
+.seg.small button { font-size: 13px; padding: 5px 16px; border-radius: 7px; }
+.seg.small .thumb { border-radius: 7px; }
+.seg.big button { font-size: 17px; padding: 12px 0; }
+
+/* the view switch in the header: --n tabs, the thumb under tab --i */
+.seg.viewsw { grid-template-columns: repeat(var(--n, 2), 1fr); }
+.seg.viewsw .thumb { width: calc((100% - 4px) / var(--n, 2)); transform: translateX(calc(var(--i, 0) * 100%)); }
+.seg.small.viewsw button { padding: 5px 12px; }
+
+/* layout */
+.main { flex: 1; min-height: 0; display: grid; gap: 12px; }
+.card { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 16px; min-height: 0; }
+.stage { display: flex; flex-direction: column; gap: 14px; }
+.side { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.controls { display: flex; flex-direction: column; gap: 6px; }
+.caption { font-size: 14px; color: var(--ink2); text-align: center; margin-top: -4px; }
+
+/* Listen: one centred column, no plots */
+body.listen .main { width: 100%; max-width: 520px; margin: 0 auto; grid-template-columns: 1fr; align-content: center; }
+body.listen .stats, body.listen .spec, body.listen .curve, body.listen .D { display: none !important; }
+body.listen .side { gap: 12px; }
+/* Details: what you hear (left) | what you set (right) */
+body.details .main { grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); }
+body.details .L, body.details .caption { display: none !important; }
+body.details .controls { flex: 1; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex: none; }
+.stat .v { font-size: 28px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .v small { font-size: 14px; font-weight: 500; color: var(--ink2); margin-left: 2px; }
+.stat .k { font-size: 12px; color: var(--ink2); }
+.meter { height: 4px; border-radius: 2px; background: var(--fill); margin-top: 5px; overflow: hidden; max-width: 120px; }
+.meter i { display: block; height: 100%; width: 0; background: var(--green); border-radius: 2px; transition: width .15s; }
+.lmeter { height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; margin: 2px auto 0; width: 60%; }
+.lmeter i { display: block; height: 100%; width: 0; background: var(--green); border-radius: 2px; transition: width .15s; }
+
+/* spectrogram of what you hear */
+.spec { flex: 1; min-height: 110px; display: grid; grid-template-columns: auto 1fr 104px; grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 4px 6px; }
+.spec .hd { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; }
+.spec .hd b { font-size: 15px; }
+.spec .hd span { font-size: 13px; color: var(--ink2); }
+.yax { display: grid; grid-template-rows: repeat(17, minmax(0, 1fr)); font-size: 10px; line-height: 1; color: var(--ink2);
+  text-align: right; font-variant-numeric: tabular-nums; min-width: 24px; }
+.yax span { display: flex; align-items: center; justify-content: flex-end; overflow: hidden; }
+canvas { width: 100%; height: 100%; display: block; border-radius: 8px; min-height: 0; }
+.xax { grid-column: 2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--ink2); }
+.gcol { display: grid; grid-template-rows: repeat(17, minmax(0, 1fr)); min-height: 0; padding-left: 4px; }
+.grow { display: flex; align-items: center; gap: 6px; min-height: 0; border-radius: 4px; cursor: default; }
+.grow .gbar { flex: 1; height: 62%; max-height: 14px; background: var(--fill); border-radius: 3px; overflow: hidden; position: relative; }
+.grow .gbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; transition: width .12s; }
+.grow .gv { width: 26px; text-align: right; font-size: 10px; line-height: 1; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.grow.hl { background: var(--fill); }
+.gcap { font-size: 11px; color: var(--ink2); text-align: right; align-self: center; white-space: nowrap; }
+.scale { display: inline-flex; align-items: center; gap: 6px; }
+.scale i { width: 72px; height: 6px; border-radius: 3px; box-shadow: inset 0 0 0 .5px var(--line);
+  background: linear-gradient(to right, var(--spec0), var(--spec1), var(--spec2)); }
+
+/* gain curve */
+.curve { flex: 1; min-height: 120px; display: flex; flex-direction: column; margin-bottom: 4px; }
+.curve .hd { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink2); margin-bottom: 4px; }
+.curve svg { flex: 1; width: 100%; min-height: 0; display: block; overflow: visible; }
+.curve .ax { stroke: var(--line); stroke-width: 1; }
+.curve .fn { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.curve .fl { stroke: var(--orange); stroke-width: 1; stroke-dasharray: 3 3; }
+.curve .th { stroke: var(--ink3); stroke-width: 1; stroke-dasharray: 2 3; }
+.curve .pt { stroke: var(--card); stroke-width: 1.5; transition: r .15s; }
+.curve .pt.hl { stroke: var(--ink); stroke-width: 2; }
+.curve.off .fn { stroke: var(--gray1); }
+.curve.off .pt { opacity: .5; }
+.curve text { fill: var(--ink2); font-size: 10px; }
+
+/* sliders */
+.ctl + .ctl { margin-top: 6px; }
+.ctl .top { display: flex; justify-content: space-between; align-items: baseline; }
+.ctl .name { font-weight: 600; }
+.ctl .val { color: var(--ink2); font-variant-numeric: tabular-nums; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; background: transparent;
+  margin: 2px 0 0; cursor: pointer; touch-action: none; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--p, 50%), var(--fill) var(--p, 50%)); }
+input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--fill); }
+input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; margin-top: -11px;
+  border-radius: 50%; background: var(--knob); box-shadow: 0 .5px 4px rgba(0,0,0,.12), 0 6px 13px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); }
+input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--knob);
+  box-shadow: 0 .5px 4px rgba(0,0,0,.12), 0 6px 13px rgba(0,0,0,.12); }
+.ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink3); margin-top: -2px; }
+.linkbtn { border: 0; background: none; color: var(--accent); font: inherit; font-size: 14px; padding: 0; cursor: pointer;
+  align-self: flex-start; }
+
+/* feedback */
+.fbq { font-size: 13px; color: var(--ink2); margin: 0 2px 8px; display: flex; justify-content: space-between; }
+.fb { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fb button { border: 0; border-radius: 14px; background: var(--fill); color: var(--ink); font: inherit; font-weight: 600;
+  padding: 14px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .12s, background .25s; }
+.fb button:active { transform: scale(.96); }
+.fb svg { width: 22px; height: 22px; }
+.fb .up.flash { background: color-mix(in srgb, var(--green) 30%, var(--fill)); }
+.fb .down.flash { background: color-mix(in srgb, var(--red) 30%, var(--fill)); }
+
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px); transform: translate(-50%, 16px);
+  background: rgba(60,60,67,.92); color: #fff; padding: 9px 16px; border-radius: 99px; font-size: 14px; opacity: 0;
+  pointer-events: none; transition: opacity .25s, transform .25s; -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px); max-width: calc(100% - 32px); text-align: center; z-index: 5; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.noconn .main { opacity: .45; }
+.fbq a { color: var(--accent); text-decoration: none; margin-left: 10px; cursor: pointer; }
+.start { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; padding: 24px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+.start.show { display: flex; }
+.startcard { background: var(--card); border-radius: 22px; box-shadow: var(--shadow); padding: 28px 24px 22px; max-width: 380px;
+  width: 100%; text-align: center; }
+.startcard h2 { margin: 0 0 6px; font-size: 24px; letter-spacing: -.02em; }
+.startcard p { margin: 0 0 14px; color: var(--ink2); }
+.startcard .hp { display: flex; gap: 10px; align-items: flex-start; text-align: left; background: var(--fill); border-radius: 12px;
+  padding: 10px 12px; font-size: 13px; color: var(--ink); margin-bottom: 18px; }
+.startcard .hp svg { flex: none; width: 22px; height: 22px; color: var(--accent); }
+.startcard button { width: 100%; border: 0; border-radius: 14px; background: var(--accent); color: #fff; font: inherit;
+  font-size: 17px; font-weight: 600; padding: 14px 0; cursor: pointer; }
+.startcard button:disabled { opacity: .5; }
+.startcard .err { color: var(--red); font-size: 13px; margin: 12px 0 0; min-height: 1em; }
+.startcard .linkbtn { width: auto; background: none; color: var(--accent); font-size: 14px; font-weight: 500; padding: 0; margin-top: 6px; }
+
+/* Offline: a file through the hearing aid. The live stage gives way to the file's; the side keeps the gain curve and
+   the sliders, and the feedback card gives way to the file's options. */
+.ostage, .ocard { display: none !important; }
+body.offline .main { grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); }
+body.offline .lstage, body.offline .fbcard, body.offline .L { display: none !important; }
+body.offline .ostage, body.offline .ocard { display: flex !important; }
+body.offline .controls { flex: 1; }
+.ofile { display: flex; align-items: center; gap: 12px; flex: none; }
+.ofile .t { flex: 1; min-width: 0; font-size: 13px; color: var(--ink2); }
+.ofile .t b { display: block; font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ofile .primary { flex: none; font-size: 15px; padding: 10px 16px; }
+.oplay { display: flex; align-items: center; gap: 12px; flex: none; }
+.playbtn { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--accent); color: #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.playbtn svg { width: 16px; height: 16px; }
+.playbtn:disabled { opacity: .45; cursor: default; }
+.oplay input { flex: 1; }
+.oplay span { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
+.ocard { flex-direction: column; gap: 10px; }
+.orow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.orow .name { font-weight: 600; }
+.orow .seg { min-width: 220px; }
+.onote { font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; margin-top: -4px; }
+.ocard .primary { width: 100%; }
+#omap { cursor: pointer; }
+.orow .seg button { white-space: nowrap; }
+body.offline .tools > * { visibility: hidden; }   /* Calibrate and Record act on the live audio */
+
+/* phone and narrow windows */
+@media (max-width: 760px) {
+  .app { gap: 10px; padding-top: calc(env(safe-area-inset-top) + 10px); }
+  header { grid-template-columns: auto 1fr auto; }
+  header .title .sub { display: none; }
+  .viewsw { justify-self: center; }
+  body.details .main, body.offline .main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 10px; }
+  body.offline .controls .ctl:last-of-type, body.offline .linkbtn, body.offline .ends, .ostage .stats, #ostat { display: none; }
+  .orow .seg.small button { padding: 5px 6px; }
+  .ofile .t span { display: none; }
+  .orow .seg { min-width: 0; flex: 1; max-width: 240px; }
+  .seg.small.viewsw button { padding: 5px 9px; }
+  .card { padding: 12px 14px; border-radius: 16px; }
+  .stage { gap: 10px; }
+  .stat .v { font-size: 22px; }
+  body.details .ends { display: none; }
+  input[type=range] { height: 26px; }
+  .chip .lbl { display: none; }
+  .chip { padding: 8px 10px; }
+  .curve { display: none; }
+  .hzlbl { display: none; }
+  .spec { grid-template-columns: auto 1fr 64px; }
+  .grow .gbar { display: none; }
+  .gcap .long { display: none; }
+  .fb button { padding: 11px 0; }
+  h1 { font-size: 20px; }
+}
+@media (max-width: 430px) {
+  header { gap: 8px; }
+  h1 { font-size: 17px; }
+  .seg.small.viewsw button { padding: 5px 7px; font-size: 12px; }
+  .h1x { display: none; }                 /* four views: the title shortens to AIDA-2 */
+  .tools { gap: 6px; }
+}
+@media (max-height: 640px) and (max-width: 760px) { .stats .k, .fbq, .linkbtn { display: none; } }
+
+/* Tune: preference trials with the end-user model (A/B, answer); one centred column like Listen */
+.tunemain { display: none; flex: 1; min-height: 0; width: 100%; max-width: 520px; margin: 0 auto; flex-direction: column;
+  justify-content: center; gap: 12px; }
+body.tune .main { display: none; }
+body.tune .tunemain { display: flex; }
+.tunemain .card { display: flex; flex-direction: column; gap: 12px; }
+.thd { display: flex; justify-content: space-between; align-items: baseline; }
+.thd b { font-size: 17px; }
+.thd span { font-size: 13px; color: var(--ink2); }
+.ans { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.ans button { border: 0; border-radius: 14px; background: var(--fill); color: var(--ink); font: inherit; font-weight: 600;
+  padding: 14px 4px; cursor: pointer; transition: transform .12s, background .25s; }
+.ans button:active { transform: scale(.96); }
+.ans button:disabled { color: var(--ink3); cursor: default; }
+.ans button.flash { background: color-mix(in srgb, var(--accent) 28%, var(--fill)); }
+.yours { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.yours .v { font-size: 26px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.yours .v small { font-size: 14px; font-weight: 500; color: var(--ink2); margin-left: 3px; }
+.yours .k { font-size: 12px; color: var(--ink2); }
+.conf { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink2); }
+.conf .meter { flex: 1; max-width: none; margin: 0; }
+.conf .meter i { background: var(--accent); }
+.tchart { flex: 1; min-height: 70px; max-height: 150px; width: 100%; display: block; overflow: visible; }
+.tchart .ax { stroke: var(--line); stroke-width: 1; }
+.tchart .ln { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.tchart .bd { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: none; }
+.tchart text { fill: var(--ink2); font-size: 10px; }
+.tbtns { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.primary { border: 0; border-radius: 14px; background: var(--accent); color: #fff; font: inherit; font-size: 16px; font-weight: 600;
+  padding: 12px 18px; cursor: pointer; flex: 1; }
+.primary:disabled { opacity: .45; cursor: default; }
+.hint { font-size: 13px; color: var(--ink2); }
+.eumdiag { font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; flex: none; }
+.eumdiag[hidden] { display: none !important; }
+body.listen .eumdiag { display: none !important; }
+@media (max-width: 760px) {
+  .yours .v { font-size: 22px; }
+  .ans button { padding: 12px 2px; font-size: 14px; }
+  .tchart { min-height: 56px; }
+}
+</style>
+</head>
+<body class="listen">
+<div class="app">
+  <header>
+    <div class="title"><h1>AIDA-2<span class="h1x"> (EUM + SEM)</span></h1><span class="sub"><span class="dot" id="dot"></span><span id="src">Connecting…</span><span id="load"></span></span></div>
+    <div class="seg small viewsw" id="view" role="tablist" style="--n: 4">
+      <span class="thumb"></span>
+      <button id="vlisten" role="tab">Listen</button>
+      <button id="vtune" role="tab">Tune</button>
+      <button id="vdetails" role="tab">Details</button>
+      <button id="voffline" role="tab">Offline</button>
+    </div>
+    <div class="tools">
+      <button class="chip" id="cal" title="Speak normally for 4 s to set the input level"><span class="prog" id="calprog"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <span class="lbl" id="caltxt">Calibrate</span></button>
+      <button class="chip rec" id="rec" title="Record input and output"><span class="rd"></span><span class="lbl" id="rectxt">Record</span></button>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="card stage lstage">
+      <div class="calcard" id="calcard" hidden>
+        <div class="t"><b>First, calibrate</b>Speak normally for 4 seconds, so the hearing aid knows your microphone's level.</div>
+        <button id="cal2"><span class="prog" id="calprog2"></span><span id="cal2txt">Calibrate</span></button>
+      </div>
+      <div class="seg big" id="seg" role="tablist">
+        <span class="thumb"></span>
+        <button id="on" role="tab">Enhanced</button>
+        <button id="off" role="tab">Original</button>
+      </div>
+      <div class="caption"><div id="captxt">Background noise reduced</div><div class="lmeter"><i id="lbar"></i></div></div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="snr">–<small>dB</small></div><div class="k">SNR estimate</div></div>
+        <div class="stat"><div class="v" id="pres">–<small>%</small></div><div class="k">Speech present</div></div>
+        <div class="stat"><div class="v" id="lvl">–<small>dBFS</small></div><div class="k">Input level</div>
+          <div class="meter"><i id="lvlbar"></i></div></div>
+      </div>
+      <div class="eumdiag" id="eumdiag" hidden></div>
+      <div class="spec">
+        <div class="hd"><b>What you hear</b><span><span id="spechd">Enhanced output</span><span class="hzlbl"> · band centres in Hz</span></span></div>
+        <div class="yax" id="yax"></div>
+        <canvas id="map" aria-label="Spectrogram of what you hear over the last 15 seconds"></canvas>
+        <div class="gcol" id="gcol" aria-label="Gain per band now"></div>
+        <div class="xax"><span>−15 s</span><span class="scale">quiet<i></i>loud</span><span>now</span></div>
+        <div class="gcap"><span class="long">Gain now, </span>dB</div>
+      </div>
+    </section>
+
+    <section class="card stage ostage" id="ostage">
+      <div class="ofile">
+        <button class="primary" id="opick">Open a WAV file</button>
+        <input type="file" id="ofile" accept=".wav,audio/wav,audio/x-wav,audio/wave" hidden>
+        <div class="t"><b id="oname">No file yet</b><span id="ometa">For example a VoiceBank+DEMAND noisy test file</span></div>
+      </div>
+      <div class="seg big" id="oseg" role="tablist">
+        <span class="thumb"></span>
+        <button id="oon" role="tab">Enhanced</button>
+        <button id="ooff" role="tab">Original</button>
+      </div>
+      <div class="oplay">
+        <button class="playbtn" id="oplay" aria-label="Play" disabled><svg viewBox="0 0 24 24" fill="currentColor"><path id="oplayi" d="M7 4.5v15l13-7.5z"/></svg></button>
+        <input type="range" id="opos" min="0" max="1000" step="1" value="0" aria-label="Position in the file">
+        <span id="otime">0.0 / 0.0 s</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="osnr">–<small>dB</small></div><div class="k">SNR estimate</div></div>
+        <div class="stat"><div class="v" id="opres">–<small>%</small></div><div class="k">Speech present</div></div>
+        <div class="stat"><div class="v" id="olvl">–<small>dBFS</small></div><div class="k">Input level</div>
+          <div class="meter"><i id="olvlbar"></i></div></div>
+      </div>
+      <div class="spec">
+        <div class="hd"><b>The file</b><span><span id="ospechd">Enhanced output</span><span class="hzlbl"> · band centres in Hz</span></span></div>
+        <div class="yax" id="oyax"></div>
+        <canvas id="omap" aria-label="Spectrogram of the file; click to play from there"></canvas>
+        <div class="gcol" id="ogcol" aria-label="Gain per band at the playhead"></div>
+        <div class="xax"><span>0 s</span><span class="scale">quiet<i></i>loud</span><span id="oend">–</span></div>
+        <div class="gcap"><span class="long">Gain here, </span>dB</div>
+      </div>
+    </section>
+
+    <div class="side">
+      <section class="card controls">
+        <div class="curve" id="curvebox">
+          <div class="hd"><span>Gain as a function of SNR</span><span id="curvehd">dots: the 17 bands now</span></div>
+          <svg id="curve" aria-label="Gain as a function of the SNR estimate"></svg>
+        </div>
+        <div class="ctl" title="Spectral floor: the lowest gain a band can take, where noise dominates">
+          <div class="top"><span class="name"><span class="L">Background noise</span><span class="D">Spectral floor</span></span><span class="val" id="floorv"></span></div>
+          <input type="range" id="floor" min="0" max="40" step="1" aria-label="Spectral floor">
+          <div class="ends"><span class="L">keep</span><span class="L">remove</span><span class="D">0 dB</span><span class="D">−40 dB</span></div>
+        </div>
+        <div class="ctl" title="Over-subtraction: how far the SNR estimate must exceed 0 dB before a band opens">
+          <div class="top"><span class="name"><span class="L">Clean-up</span><span class="D">Over-subtraction</span></span><span class="val" id="thetav"></span></div>
+          <input type="range" id="theta" min="-10" max="15" step="0.5" aria-label="Over-subtraction">
+          <div class="ends"><span class="L">natural</span><span class="L">clean</span><span class="D">less</span><span class="D">more</span></div>
+        </div>
+        <div class="ctl">
+          <div class="top"><span class="name">Volume</span><span class="val" id="volumev"></span></div>
+          <input type="range" id="volume" min="-30" max="20" step="1" aria-label="Volume">
+        </div>
+        <button class="linkbtn" id="reset">Reset</button>
+      </section>
+      <section class="card ocard">
+        <div class="orow" title="Paper: the samples as they are (sample value 1 = the filter bank’s 100 dB SPL reference), as the paper’s test pipeline. From file: the file’s active speech level (ITU-T P.56) is moved into the range of the training files when it lies outside it.">
+          <span class="name">Input level</span>
+          <div class="seg small" id="ocal" role="tablist"><span class="thumb"></span><button id="ocal0">Paper</button><button id="ocal1">From file</button></div>
+        </div>
+        <div class="onote" id="ocalv">offset 0 dB: the samples as they are</div>
+        <div class="orow" title="Previous block: every output sample is formed when its input sample arrives (delay ≤ 2.8 ms, the paper’s headline). Same block: the gains of the block itself (≤ 4.3 ms).">
+          <span class="name">Gains</span>
+          <div class="seg small" id="olag" role="tablist"><span class="thumb"></span><button id="olag0">Previous block</button><button id="olag1">Same block</button></div>
+        </div>
+        <div class="orow" title="Current: the sliders, as set in Listen, Details or by Use my settings. Tune: the end-user model’s recommendation at this file’s SNR estimate (the whole file’s, as Tune uses the last 3 s).">
+          <span class="name">Settings</span>
+          <div class="seg small" id="oset" role="tablist"><span class="thumb"></span><button id="oset0">Current</button><button id="oset1">Tune</button></div>
+        </div>
+        <div class="onote" id="ostat">Open a file: it is processed with the settings above.</div>
+        <button class="primary" id="osave" disabled>Save output</button>
+      </section>
+      <section class="card fbcard">
+        <div class="fbq"><span>How does it sound?</span><span><span id="fbn"></span><a id="export" hidden>Export</a></span></div>
+        <div class="fb">
+          <button class="up" id="up" aria-label="Good">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3zm0 0l4-8a2.5 2.5 0 0 1 2.5 2.5V9h5.4a2 2 0 0 1 2 2.3l-1.3 8A2 2 0 0 1 17.6 21H7"/></svg>Good</button>
+          <button class="down" id="down" aria-label="Not good">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-3zm0 0l-4 8a2.5 2.5 0 0 1-2.5-2.5V15H5.1a2 2 0 0 1-2-2.3l1.3-8A2 2 0 0 1 6.4 3H17"/></svg>Not good</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="tunemain">
+    <section class="card">
+      <div class="thd"><b id="ttrial">Trial 1</b><span>Which sounds better?</span></div>
+      <div class="seg big" id="abseg" role="tablist">
+        <span class="thumb"></span>
+        <button id="pa" role="tab">A</button>
+        <button id="pb" role="tab">B</button>
+      </div>
+      <div class="caption">Switch between A and B as often as you like, then answer.</div>
+      <div class="ans">
+        <button id="rbetter">B is better</button>
+        <button id="rsame">Same</button>
+        <button id="rworse">B is worse</button>
+      </div>
+    </section>
+    <section class="card">
+      <div class="thd"><b>Your settings</b><span id="tafter">no answers yet</span></div>
+      <div class="yours">
+        <div title="Over-subtraction θ"><div class="v" id="tclean">–<small>dB</small></div><div class="k" id="tcleank">Clean-up</div></div>
+        <div title="Spectral floor"><div class="v" id="tfloor">–<small>dB</small></div><div class="k" id="tfloork">Background noise</div></div>
+      </div>
+      <div class="conf" title="Share of the settings the model still finds plausible for which this one is the best"><span>Confidence</span>
+        <div class="meter"><i id="tconf"></i></div><span id="tconfv">–</span></div>
+      <svg class="tchart" id="tchart" aria-label="Your settings after each answer"></svg>
+      <div class="hint" id="thint">The hearing aid proposes each comparison to learn your taste quickly.</div>
+      <div class="tbtns"><button class="primary" id="tuse">Use my settings</button>
+        <button class="linkbtn" id="trestart">Start over</button><a class="linkbtn" id="texport" hidden>Export</a></div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="start" id="start" role="dialog" aria-labelledby="starttitle">
+  <div class="startcard">
+    <h2 id="starttitle">AIDA-2 (EUM + SEM)</h2>
+    <p>Speech enhancement running on this device, from its microphone to your headphones.</p>
+    <div class="hp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>
+      <span>Plug in <b>wired</b> headphones first. Bluetooth headphones add a delay you hear as an echo, and the loudspeaker feeds back into the microphone.</span></div>
+    <button id="go">Start</button>
+    <p class="err" id="starterr"></p>
+    <button class="linkbtn" id="gofile">Or process a file (Offline view)</button>
+  </div>
+</div>
+
+<script>
+/* One page, two engines. Served by demo/live/sem_live (laptop), it controls that program over HTTP (/state, /set, /do).
+   Served as a static site (demo/web), it runs the hearing aid itself: sem.wasm in an AudioWorklet (worklet.js), the
+   device's microphone in and its headphones out. The page decides by asking for /state. The Offline view processes a
+   whole file with the same C code: POST /offline to sem_live, or offline.wasm in this page. */
+const $ = id => document.getElementById(id);
+let st = null, lastMsg = null, dragging = null, snrS = null, presS = null, engine = null;
+
+function toast(text) {
+  const t = $("toast"); t.textContent = text; t.classList.add("show");
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 2600);
+}
+const fill = el => el.style.setProperty("--p", (100 * (el.value - el.min) / (el.max - el.min)) + "%");
+const fmt = (v, d = 0) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const rgb = h => { h = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+                set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+
+/* ---------- engine 1: the laptop program (sem_live) ---------- */
+const liveEngine = {
+  name: "live",
+  start() {
+    const poll = () => fetch("/state", { cache: "no-store" }).then(r => r.json()).then(onState)
+      .catch(() => { document.body.classList.add("noconn"); $("dot").classList.remove("on"); $("src").textContent = "Not connected"; })
+      .finally(() => setTimeout(poll, 100));
+    poll();
+  },
+  set(p) { const q = Object.entries(p).map(([k, v]) => `${k}=${+v}`).join("&");
+    return fetch("/set?" + q, { cache: "no-store" }).then(r => r.json()).then(render); },
+  act(a) { return fetch("/do?a=" + a, { cache: "no-store" }).then(r => r.json()).then(render); },
+  /* Offline view: the file's samples to sem_live, which runs sem_offline (double precision) over them */
+  async offline(x, fs, o) {
+    const r = await fetch(`/offline?fs=${fs}&cal=${o.cal}&same=${o.same}&theta=${o.theta}&floor=${o.floor}`,
+                          { method: "POST", body: x, cache: "no-store" });
+    if (!r.ok) throw new Error(await r.text());
+    const b = await r.arrayBuffer(), v = new Float64Array(b, 0, 10), n = v[0];
+    return { n16: n, level: v[3], offset: v[4], snr: v[5], lo: v[6], hi: v[7], secs: v[8],
+             x16: new Float32Array(b.slice(80, 80 + 4 * n)), y16: new Float64Array(b.slice(80 + 4 * n, 80 + 12 * n)),
+             cols: new Float32Array(b.slice(80 + 12 * n)) };
+  },
+  mute(on) { fetch("/set?mute=" + (on ? 1 : 0), { cache: "no-store" }).catch(() => {}); },
+  eum(a, extra = "") { return fetch("/eum" + (a ? "?a=" + a + extra : ""), { cache: "no-store" }).then(r => r.json()); },
+  recommend(snr) { return fetch("/eum?a=recommend&s=" + snr, { cache: "no-store" }).then(r => r.json()); },   // Offline view
+};
+
+/* ---------- engine 2: this device (WebAssembly in the audio thread) ---------- */
+const DEFAULTS = { theta: 3, floor: -20, volume: 0, enhance: 1 };
+const LIMITS = { theta: [-10, 15], floor: [-40, 0], volume: [-30, 20] };
+const webEngine = {
+  name: "web", cfg: { ...DEFAULTS }, node: null, last: null, rate: 0, pendingVote: null,
+  feedback: () => store.get("semv2-feedback", []),
+  start() {
+    if (!document.body.classList.contains("offline")) $("start").classList.add("show");
+    $("go").onclick = () => this.open().catch(err => {
+      $("go").disabled = false;
+      $("starterr").textContent = err && err.name === "NotAllowedError"
+        ? "Microphone access was refused. Allow it for this page in the browser settings and try again."
+        : "Could not start audio: " + (err && err.message || err);
+    });
+  },
+  async open() {
+    $("go").disabled = true; $("starterr").textContent = "";
+    const ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+    ctx.resume();
+    if (navigator.audioSession) try { navigator.audioSession.type = "play-and-record"; } catch (e) {}
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+      echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });   // our processing only
+    const [wasm] = await Promise.all([fetch("sem.wasm").then(r => r.arrayBuffer()), ctx.audioWorklet.addModule("worklet.js")]);
+    const node = new AudioWorkletNode(ctx, "sem-processor", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+    node.port.onmessage = ev => this.message(ev.data);
+    ctx.createMediaStreamSource(stream).connect(node);
+    this.stream = stream;
+    node.connect(ctx.destination);
+    node.port.postMessage({ type: "init", wasm, iters: 5 }, [wasm]);
+    this.node = node; this.rate = ctx.sampleRate; this.ctx = ctx;
+    this.push();
+    $("start").classList.remove("show");
+  },
+  push() { if (this.node) this.node.port.postMessage({ type: "set", ...this.cfg }); },
+  /* Offline view: offline.wasm (demo/web/offline_web.c, double precision) in this page's main thread */
+  async offline(x, fs, o) {
+    if (!this.offP) this.offP = fetch("offline.wasm").then(r => r.arrayBuffer())
+      .then(b => WebAssembly.instantiate(b, { env: { emscripten_notify_memory_growth() {} } }))
+      .then(({ instance }) => { instance.exports._initialize(); return instance.exports; });
+    const e = await this.offP, t0 = performance.now();
+    new Float32Array(e.memory.buffer, e.web_off_input(x.length), x.length).set(x);
+    const v = Array.from(new Float64Array(e.memory.buffer, e.web_off_run(x.length, fs, o.cal, o.theta, o.floor, o.same), 8)), n = v[0];
+    if (!n) throw new Error("cannot process this file");
+    const nc = Math.floor(v[1] / OFF_COL) + 1;
+    return { n16: n, level: v[3], offset: v[4], snr: v[5], lo: v[6], hi: v[7], secs: (performance.now() - t0) / 1000,
+             x16: new Float32Array(e.memory.buffer, e.web_off_x16(), n).slice(), y16: new Float64Array(e.memory.buffer, e.web_off_y16(), n).slice(),
+             cols: new Float32Array(e.memory.buffer, e.web_off_cols(), v[2] * OFF_CV).slice() };
+  },
+  /* Offline view: the microphone and the audio context are closed (suspending them left the microphone capturing,
+     and the demo collapsed); on leaving the view they open again, the calibration restored from this browser */
+  mute(on) {
+    if (on && this.node) {
+      this.stream.getTracks().forEach(t => t.stop()); this.ctx.close();
+      this.node = this.ctx = this.stream = null; this.paused = true;
+    } else if (!on && this.paused) {
+      this.paused = false;
+      this.open().catch(() => { $("go").disabled = false; $("start").classList.add("show"); });
+    }
+  },
+  compose(m) {
+    const fb = this.feedback();
+    return { ...this.cfg, enhance: this.cfg.enhance ? 1 : 0, input_gain: m ? m.input_gain : 0,
+             calibrated: store.get("semv2-cal", null) !== null,
+             calibrating: m ? m.cal_progress >= 0 : false, cal_progress: m ? Math.max(0, m.cal_progress) : 0,
+             recording: m ? m.recording : false, rec_s: m ? m.rec_s : 0, source: "device", iters: 5,
+             rate: this.rate, snr: m ? m.snr : NaN, presence: m ? m.presence : 0, noise: m ? m.noise : 0,
+             level: m ? m.level : -120, load: null, up: fb.filter(f => f.vote === "up").length,
+             down: fb.filter(f => f.vote === "down").length, msg: "", hz: m && m.hz, xi: m && m.xi, p: m && m.p,
+             gain: m && m.gain, y: m && m.y };
+  },
+  message(m) {
+    if (m.type === "state") { this.last = m.s; onState(this.compose(m.s)); }
+    else if (m.type === "ready") {
+      const g = store.get("semv2-cal", null);
+      if (g !== null) this.node.port.postMessage({ type: "gain", value: g });
+      toast(g !== null ? `Running at ${m.rate / 1000} kHz · calibration ${fmt(g, 1)} dB restored` : `Running at ${m.rate / 1000} kHz`);
+      if (document.body.classList.contains("tune")) tune.enter();
+    }
+    else if (m.type === "calibrated") {
+      if (m.ok) store.set("semv2-cal", m.gain);
+      toast(m.ok ? `Calibrated: input gain ${fmt(m.gain, 1)} dB` : "Too quiet to calibrate: speak a little louder or closer");
+    }
+    else if (m.type === "context") { const w = this.ctxWait; this.ctxWait = null; if (w) w(m.s); else this.saveVote(m.s); }
+    else if (m.type === "recording") this.saveRecording(m.input, m.output);
+  },
+  set(p) {
+    for (const k in p) this.cfg[k] = LIMITS[k] ? Math.min(LIMITS[k][1], Math.max(LIMITS[k][0], +p[k])) : +p[k];
+    this.push(); render(this.compose(this.last)); return Promise.resolve();
+  },
+  act(a) {
+    if (a === "reset") return this.set(DEFAULTS);
+    if (!this.node) return Promise.resolve();
+    if (a === "cal") this.node.port.postMessage({ type: "calibrate" });
+    else if (a === "rec") this.node.port.postMessage({ type: "record" });
+    else if (a === "up" || a === "down") { this.pendingVote = a; this.node.port.postMessage({ type: "context" }); }
+    return Promise.resolve();
+  },
+  saveVote(s) {                // the same fields as demo/live's feedback.jsonl
+    const c = this.cfg, round = v => Math.round(v * 1000) / 1000;
+    const entry = { time: new Date().toISOString().slice(0, 19), vote: this.pendingVote, enhance: c.enhance ? 1 : 0,
+      theta_db: c.theta, floor_db: c.floor, volume_db: c.volume, input_gain_db: round(s.input_gain), source: "browser",
+      device_rate: this.rate, user_agent: navigator.userAgent, context_s: round(s.blocks * 24 / 16000),
+      snr_db: round(s.snr), speech_presence: round(s.presence), noise_db: round(s.noise), input_dbfs: round(s.level),
+      band_xi_db: s.xi.map(round), band_p_speech: s.p.map(round), band_noise_db: s.noise_band.map(round),
+      band_gain_db: s.gain.map(round) };
+    const fb = this.feedback(); fb.push(entry); store.set("semv2-feedback", fb);
+    toast(`Feedback saved (${entry.vote === "up" ? "good" : "not good"}, SNR ${s.snr.toFixed(1)} dB)`);
+    render(this.compose(this.last));
+  },
+  /* the EUM tuning session: eum.wasm (demo2_eum/eum) in this page's main thread, never in the audio thread; the context is
+     the worklet's last 3 s; answered trials are kept in the browser and exported as eum_trials.jsonl */
+  eumLoad() {
+    if (!this.eumP) this.eumP = fetch("eum.wasm").then(r => r.arrayBuffer()).then(b => WebAssembly.instantiate(b, {}))
+      .then(({ instance }) => { const e = instance.exports; if (e._initialize) e._initialize(); e.eum_web_reset(); return e; })
+      .catch(() => null);
+    return this.eumP;
+  },
+  async recommend(snr) {         // Offline view: the recommendation at the file's SNR estimate, not applied
+    const e = await this.eumLoad();
+    if (!e) throw new Error("the end-user model is not available");
+    e.eum_web_recommend(snr);
+    const o = new Float64Array(e.memory.buffer, e.eum_web_out(), 2); return { theta: o[0], floor: o[1] };
+  },
+  context() { return new Promise(res => { if (!this.node) return res(null); this.ctxWait = res; this.node.port.postMessage({ type: "context" }); }); },
+  trials: () => store.get("semv2-eum-trials", []),
+  async eum(a, extra = "") {
+    const e = await this.eumLoad();
+    if (!e) return null;
+    const str = p => { const m = new Uint8Array(e.memory.buffer, p); return new TextDecoder().decode(m.subarray(0, m.indexOf(0))); };
+    const c = a ? await this.context() : null, t = performance.now() / 1000, q = new URLSearchParams(extra.slice(1));
+    const out = () => { const o = new Float64Array(e.memory.buffer, e.eum_web_out(), 2); return { theta: o[0], floor: o[1] }; };
+    if (c) {
+      if (a === "enter") { if (!e.eum_web_active()) this.savedEnh = this.cfg.enhance; e.eum_web_enter(c.snr, t, this.cfg.theta, this.cfg.floor); this.set({ ...out(), enhance: 1 }); }
+      else if (a === "play" && e.eum_web_active()) { e.eum_web_play(q.get("x") === "B" ? 1 : 0); this.set(out()); }
+      else if (a === "answer" && e.eum_web_active() && c.blocks > 0) {           // no sound yet: no context
+        if (e.eum_web_answer(+q.get("r"), t, c.snr) === 0) {
+          const round = v => Math.round(v * 1000) / 1000;
+          const entry = { time: new Date().toISOString().slice(0, 19), source: "browser", ...JSON.parse("{" + str(e.eum_web_log()) + "}"),
+            context_s: round(c.blocks * 24 / 16000), snr_db_answer: round(c.snr), speech_presence: round(c.presence),
+            noise_db: round(c.noise), input_dbfs: round(c.level), band_xi_db: c.xi.map(round), band_p_speech: c.p.map(round),
+            band_noise_db: c.noise_band.map(round), band_gain_db: c.gain.map(round), device_rate: this.rate };
+          const tr = this.trials(); tr.push(entry); store.set("semv2-eum-trials", tr);
+          this.set(out());
+        }
+      }
+      else if (a === "apply") { e.eum_web_apply(c.snr); this.set({ ...out(), enhance: 1 }); }
+      else if (a === "leave" && e.eum_web_active()) { e.eum_web_leave(); this.set({ ...out(), enhance: this.savedEnh ?? 1 }); }
+      else if (a === "reset") {
+        const was = e.eum_web_active();
+        if (was) e.eum_web_leave();
+        const o = out(); e.eum_web_reset();
+        if (was) { e.eum_web_enter(c.snr, t, o.theta, o.floor); this.set(out()); }
+      }
+    }
+    return JSON.parse(str(e.eum_web_json()));
+  },
+  saveRecording(input, output) {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+    download(wav16(input), `rec_${stamp}_in.wav`); download(wav16(output), `rec_${stamp}_out.wav`);
+    toast(`Saved rec_${stamp}_in.wav and _out.wav (${(input.length / 16000).toFixed(1)} s)`);
+  },
+};
+function wav16(x) {             // mono 16 kHz 16-bit WAV
+  const b = new DataView(new ArrayBuffer(44 + 2 * x.length)), w = (o, s) => [...s].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); b.setUint32(4, 36 + 2 * x.length, true); w(8, "WAVEfmt "); b.setUint32(16, 16, true); b.setUint16(20, 1, true);
+  b.setUint16(22, 1, true); b.setUint32(24, 16000, true); b.setUint32(28, 32000, true); b.setUint16(32, 2, true);
+  b.setUint16(34, 16, true); w(36, "data"); b.setUint32(40, 2 * x.length, true);
+  for (let i = 0; i < x.length; i++) b.setInt16(44 + 2 * i, Math.round(Math.max(-1, Math.min(1, x[i])) * 32767), true);
+  return new Blob([b], { type: "audio/wav" });
+}
+function download(blob, name) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+$("export").onclick = () => download(new Blob([webEngine.feedback().map(f => JSON.stringify(f)).join("\n") + "\n"],
+  { type: "application/x-ndjson" }), "feedback.jsonl");
+$("texport").onclick = () => download(new Blob([webEngine.trials().map(f => JSON.stringify(f)).join("\n") + "\n"],
+  { type: "application/x-ndjson" }), "eum_trials.jsonl");
+
+/* ---------- views: Listen (default), Tune, Details and Offline; remembered per browser, or ?view=details ---------- */
+const VIEWS = ["listen", "tune", "details", "offline"];
+function setView(v) {
+  if (!VIEWS.includes(v)) v = "listen";
+  const was = document.body.classList.contains("tune"), wasOff = document.body.classList.contains("offline");
+  document.body.classList.remove(...VIEWS); document.body.classList.add(v);
+  $("view").style.setProperty("--i", VIEWS.indexOf(v));
+  store.set("semv2-view", v);
+  setTimeout(() => {                    // after the script has run: `tune` and `ofl` are defined below
+    if (v === "tune" && !was) tune.enter(); else if (v !== "tune" && was) tune.leave();
+    if (v === "details") tune.call("");
+    ofl.view(v === "offline", wasOff);
+  });
+  requestAnimationFrame(() => { draw(); if (st && v === "details") drawCurve(st); if (tune.s) tune.chart(tune.s); });
+}
+$("voffline").onclick = () => setView("offline");
+$("vlisten").onclick = () => setView("listen");
+$("vtune").onclick = () => setView("tune");
+$("vdetails").onclick = () => setView("details");
+setView(new URLSearchParams(location.search).get("view") || store.get("semv2-view", "listen"));
+
+/* ---------- spectrogram of what you hear: band level (dB) per column, 10 per second for 15 s; the input level while
+   Original plays, the input level plus the band gain while Enhanced plays. Colour range: the loudest 2 % of the
+   picture down 45 dB. ---------- */
+const COLS = 150, NB = 17, RANGE = 45, hist = [];
+const bandColor = b => `hsl(${195 + 105 * b / (NB - 1)} 75% 52%)`;     // low bands cyan, high bands purple
+let colors = null;
+function readColors() { colors = [rgb(css("--spec0")), rgb(css("--spec1")), rgb(css("--spec2"))]; }
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { readColors(); draw(); if (st) drawCurve(st); ofl.show(true); });
+const ramp = t => {
+  const [a, b, c] = colors, u = t < .5 ? t * 2 : (t - .5) * 2, [p, q] = t < .5 ? [a, b] : [b, c];
+  return `rgb(${p.map((v, i) => Math.round(v + (q[i] - v) * u))})`;
+};
+function draw() { paintMap($("map"), hist.map(h => h.lv), COLS); }
+/* columns: band levels (dB) per column, right-aligned in n slots; mark: a playhead column (the Offline view) */
+function paintMap(cv, cols, n, mark = null) {
+  const r = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H) return;
+  if (cv.width !== Math.round(W * r) || cv.height !== Math.round(H * r)) { cv.width = Math.round(W * r); cv.height = Math.round(H * r); }
+  const c = cv.getContext("2d"); c.setTransform(r, 0, 0, r, 0, 0);
+  if (!colors) readColors();
+  c.fillStyle = ramp(0); c.fillRect(0, 0, W, H);
+  if (!cols.length) return;
+  const all = cols.flat().sort((a, b) => a - b), hi = all[Math.floor(0.98 * (all.length - 1))], lo = hi - RANGE;
+  const cw = W / n, ch = H / NB, off = n - cols.length;
+  for (let j = 0; j < cols.length; j++)
+    for (let k = 0; k < NB; k++) {
+      c.fillStyle = ramp(Math.max(0, Math.min(1, (cols[j][k] - lo) / RANGE)));
+      c.fillRect((off + j) * cw, H - (k + 1) * ch, cw + 0.6, ch + 0.6);
+    }
+  if (mark !== null) { c.fillStyle = css("--orange"); c.fillRect((off + mark + 0.5) * cw - 1, 0, 2, H); }
+}
+
+/* ---------- gain curve: the readout max(σ(ξ − θ), floor) in dB against the SNR estimate ξ, with each band's current
+   (ξ, gain) ---------- */
+const XMIN = -10, XMAX = 20;
+function drawCurve(s) {
+  const svg = $("curve"), W = svg.clientWidth, H = svg.clientHeight;
+  if (!W || !H) return;
+  const L = 34, R = 6, T = 6, B = 18, DB = -40;
+  const x = v => L + (Math.max(XMIN, Math.min(XMAX, v)) - XMIN) / (XMAX - XMIN) * (W - L - R);
+  const y = g => T + Math.min(0, Math.max(DB, g)) / DB * (H - T - B);
+  const gdb = v => 20 * Math.log10(Math.max(1 / (1 + Math.exp(-(v - s.theta))), Math.pow(10, s.floor / 20)));
+  if (svg.dataset.w != W || svg.dataset.h != H) {
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.dataset.w = W; svg.dataset.h = H;
+    let g = "";
+    for (const d of [0, -20, -40]) g += `<line class="ax" x1="${L}" x2="${W - R}" y1="${y(d)}" y2="${y(d)}"/><text x="${L - 6}" y="${y(d) + 3.5}" text-anchor="end">${d ? "−" + (-d) : "0 dB"}</text>`;
+    for (const v of [-10, -5, 0, 5, 10, 15, 20]) g += `<text x="${x(v)}" y="${H - 4}" text-anchor="middle">${v}${v === 20 ? " dB" : ""}</text>`;
+    g += `<line class="fl" id="cfl" x1="${L}" x2="${W - R}"/><line class="th" id="cth" y1="${T}" y2="${H - B}"/><path class="fn" id="cfn"/>`;
+    for (let b = 0; b < NB; b++) g += `<circle class="pt" id="c${b}" r="4.5" fill="${bandColor(b)}"><title>band ${b + 1}</title></circle>`;
+    svg.innerHTML = g;
+  }
+  let d = "";
+  for (let i = 0; i <= 120; i++) { const v = XMIN + (XMAX - XMIN) * i / 120; d += (i ? "L" : "M") + x(v).toFixed(1) + "," + y(gdb(v)).toFixed(1); }
+  $("cfn").setAttribute("d", d);
+  $("cfl").setAttribute("y1", y(s.floor)); $("cfl").setAttribute("y2", y(s.floor));
+  $("cth").setAttribute("x1", x(s.theta)); $("cth").setAttribute("x2", x(s.theta));
+  for (let b = 0; b < NB && s.xi; b++) { const c = $("c" + b); c.setAttribute("cx", x(s.xi[b])); c.setAttribute("cy", y(gdb(s.xi[b]))); }
+  $("curvebox").classList.toggle("off", !s.enhance);
+}
+addEventListener("resize", () => { draw(); if (st) drawCurve(st); ofl.show(true); if (tune.s) tune.chart(tune.s); });
+
+/* ---------- state → screen ---------- */
+function onState(s) {                 // a new measurement: also one spectrogram column
+  render(s);
+  if (document.body.classList.contains("details") && Date.now() - (tune.polled || 0) > 2000) { tune.polled = Date.now(); tune.call(""); }
+  if (s.y) {
+    hist.push({ lv: s.y.map((v, k) => v + (s.enhance ? s.gain[k] : 0)) }); if (hist.length > COLS) hist.shift();
+    if (document.body.classList.contains("details")) draw();
+  }
+}
+/* gain column: one row per band, aligned with the spectrogram rows; the bar is the reduction, 0 to 40 dB */
+function buildGcol(hz, el = $("gcol"), pre = "g") {
+  const lab = f => f < 1000 ? String(Math.round(f / 10) * 10) + " Hz" : (f / 1000).toFixed(1) + " kHz";
+  el.innerHTML = hz.map((f, b) => b).reverse().map(b =>
+    `<div class="grow" data-b="${b}" title="band ${b + 1}, ${lab(hz[b])}"><div class="gbar"><i id="${pre}b${b}" style="background:${bandColor(b)}"></i></div><span class="gv" id="${pre}v${b}"></span></div>`).join("");
+  for (const r of el.children) {
+    const b = r.dataset.b, on = v => { r.classList.toggle("hl", v); const c = $("c" + b); if (c) { c.classList.toggle("hl", v); c.setAttribute("r", v ? 7 : 4.5); } };
+    r.onmouseenter = () => on(true); r.onmouseleave = () => on(false);
+  }
+}
+function buildYax(hz, el) {                    // every band centre, high on top
+  const lab = f => f < 1000 ? String(Math.round(f / 10) * 10) : (f / 1000).toFixed(1) + "k";
+  el.innerHTML = hz.map(lab).reverse().map(t => `<span>${t}</span>`).join("");
+}
+let redS = null;
+function render(s) {
+  st = s; document.body.classList.remove("noconn");
+  const details = document.body.classList.contains("details");
+  $("dot").classList.add("on");
+  $("src").textContent = s.source === "file" ? "File" : s.source === "device" ? "This device" : "Microphone";
+  $("load").textContent = !details ? "" : s.load != null ? ` · ${s.iters} iterations · CPU ${(100 * s.load).toFixed(1)} %`
+                                              : ` · ${s.iters} iterations · ${(s.rate / 1000).toFixed(1)} kHz`;
+  $("seg").classList.toggle("right", !s.enhance);
+  if (s.gain && s.p) {                // average reduction where noise dominates, weighted by q(π = noise)
+    let num = 0, den = 0;
+    for (let b = 0; b < s.gain.length; b++) { num += (1 - s.p[b]) * -s.gain[b]; den += 1 - s.p[b]; }
+    const red = den > 1e-6 ? num / den : 0; redS = redS === null ? red : 0.85 * redS + 0.15 * red;
+  }
+  $("captxt").textContent = !(s.level > -100) ? "Waiting for sound…"
+    : !s.enhance ? "Unprocessed sound · the model keeps listening"
+    : redS === null ? "Background noise reduced" : `Background noise reduced by about ${Math.round(redS)} dB`;
+  if (s.gain && s.hz) {
+    if (!$("gcol").childElementCount) buildGcol(s.hz);
+    for (let b = 0; b < s.gain.length; b++) {
+      $("gb" + b).style.width = Math.min(100, Math.max(0, -s.gain[b] / 40 * 100)) + "%";
+      $("gv" + b).textContent = Math.round(s.gain[b]) === 0 ? "0" : "−" + Math.abs(Math.round(s.gain[b]));
+    }
+    $("gcol").style.opacity = s.enhance ? 1 : .45;
+  }
+  $("spechd").textContent = s.enhance ? "Enhanced output" : "Original input";
+  if (isFinite(s.snr)) { snrS = snrS === null ? s.snr : 0.8 * snrS + 0.2 * s.snr; presS = presS === null ? s.presence : 0.8 * presS + 0.2 * s.presence; }
+  $("snr").firstChild.nodeValue = snrS === null ? "–" : snrS.toFixed(1);
+  $("pres").firstChild.nodeValue = presS === null ? "–" : Math.round(100 * presS);
+  $("lvl").firstChild.nodeValue = s.level > -120 ? Math.max(-99, s.level).toFixed(0) : "–";
+  const lw = Math.max(0, Math.min(100, (s.level + 60) / 60 * 100)) + "%";
+  $("lvlbar").style.width = lw; $("lbar").style.width = lw;
+  if (s.hz && !$("yax").childElementCount) buildYax(s.hz, $("yax"));
+  for (const [id, v, txt] of [["floor", -s.floor, fmt(Math.round(s.floor)) + " dB"],
+                              ["theta", s.theta, fmt(s.theta, 1) + " dB"],
+                              ["volume", s.volume, fmt(s.volume) + " dB"]]) {
+    if (dragging !== id) { $(id).value = v; fill($(id)); $(id + "v").textContent = txt; }
+  }
+  if (details) drawCurve(s);
+  if (document.body.classList.contains("offline")) ofl.settings(s);
+  $("fbn").textContent = s.up + s.down ? `${s.up} 👍 · ${s.down} 👎` : "";
+  $("export").hidden = !(engine === webEngine && s.up + s.down);
+  const isFile = s.source === "file", need = !isFile && !s.calibrated && !s.calibrating;
+  $("cal").disabled = isFile;
+  $("cal").classList.toggle("need", need);
+  $("cal").classList.toggle("done", !isFile && !!s.calibrated && !s.calibrating);
+  $("caltxt").innerHTML = s.calibrating ? "Speak…" : s.calibrated && !isFile ? `<span class="ok">✓</span> Calibrated` : "Calibrate";
+  $("cal").title = s.calibrated ? `Input gain ${fmt(s.input_gain, 1)} dB. Tap to calibrate again.` : "Speak normally for 4 s to set the input level";
+  $("calprog").style.width = (s.calibrating ? 100 * s.cal_progress : 0) + "%";
+  $("calcard").hidden = isFile || (!!s.calibrated && !s.calibrating);
+  $("cal2txt").textContent = s.calibrating ? "Speak…" : "Calibrate";
+  $("calprog2").style.width = (s.calibrating ? 100 * s.cal_progress : 0) + "%";
+  $("rec").classList.toggle("on", !!s.recording);
+  $("rectxt").textContent = s.recording ? s.rec_s.toFixed(0) + " s" : "Record";
+  if (lastMsg !== null && s.msg && s.msg !== lastMsg) toast(s.msg);
+  lastMsg = s.msg || "";
+}
+
+/* ---------- controls ---------- */
+const act = a => engine && engine.act(a), set = p => engine && engine.set(p);
+$("on").onclick = () => set({ enhance: 1 });
+$("off").onclick = () => set({ enhance: 0 });
+const toValue = { floor: v => -v, theta: v => +v, volume: v => +v };
+for (const id of ["floor", "theta", "volume"]) {
+  const el = $(id); let pending = null, busy = false;
+  const push = () => { if (busy || pending === null) return; busy = true; const v = pending; pending = null;
+    Promise.resolve(set({ [id]: toValue[id](v) })).finally(() => { busy = false; push(); }); };
+  el.addEventListener("input", () => { dragging = id; fill(el); pending = el.value; push();
+    const v = +el.value; $(id + "v").textContent = id === "floor" ? fmt(-v) + " dB" : fmt(v, id === "theta" ? 1 : 0) + " dB"; });
+  for (const ev of ["change", "pointerup", "pointercancel"]) el.addEventListener(ev, () => { dragging = null; });
+}
+$("reset").onclick = () => act("reset");
+$("cal").onclick = () => act("cal");
+$("cal2").onclick = () => act("cal");
+$("rec").onclick = () => act("rec");
+for (const id of ["up", "down"]) {
+  $(id).onclick = () => { const b = $(id); b.classList.add("flash"); setTimeout(() => b.classList.remove("flash"), 450);
+    if (navigator.vibrate) navigator.vibrate(10); act(id); };
+}
+document.addEventListener("keydown", e => {
+  if (!st || e.target.tagName === "INPUT") return;
+  if (e.key === " " && document.body.classList.contains("offline")) { e.preventDefault(); ofl.ab(!ofl.enh); }
+  else if (e.key === " " && document.body.classList.contains("tune")) { e.preventDefault(); tune.play(tune.s && tune.s.playing === "B" ? "A" : "B"); }
+  else if (e.key === " ") { e.preventDefault(); set({ enhance: st.enhance ? 0 : 1 }); }
+});
+
+/* ---------- Tune: preference trials with the end-user model (SEM-UserModel, protocol A). The agent proposes A (its
+   recommendation) and B (its most informative change); the listener switches freely and answers. No plot of the sound
+   here, as in Listen; the agent's trial details are in Details. ---------- */
+const tune = {
+  s: null,
+  call(a, extra = "") {
+    if (!engine || !engine.eum) return Promise.resolve(null);
+    return engine.eum(a, extra).then(s => { if (s) this.render(s); return s; }).catch(() => null);
+  },
+  enter() { return this.call("enter"); },
+  leave() { return this.call("leave"); },
+  play(x) { return this.call("play", "&x=" + x); },
+  answer(r, id) {
+    const b = $(id); b.classList.add("flash"); setTimeout(() => b.classList.remove("flash"), 450);
+    if (navigator.vibrate) navigator.vibrate(10);
+    const n0 = this.s ? this.s.trials : 0;
+    return this.call("answer", "&r=" + r).then(s => s && toast(s.trials > n0 ? `Answer saved · trial ${s.trials + 1} is ready`
+      : "Waiting for sound: answers count once the hearing aid hears something"));
+  },
+  render(s) {
+    this.s = s;
+    const n = s.trials, r = s.rec, sd = v => v >= 0.5 ? ` ± ${Math.round(v)}` : "";
+    $("ttrial").textContent = `Trial ${n + 1}`;
+    $("abseg").classList.toggle("right", s.playing === "B");
+    $("tafter").textContent = n ? `after ${n} answer${n > 1 ? "s" : ""}` : "no answers yet";
+    if (r) {
+      $("tclean").innerHTML = `${fmt(r.theta)}<small>${sd(r.sd_theta)} dB</small>`;
+      $("tfloor").innerHTML = `${fmt(r.floor)}<small>${sd(r.sd_floor)} dB</small>`;
+      $("tconf").style.width = Math.round(100 * r.p_best) + "%"; $("tconfv").textContent = Math.round(100 * r.p_best) + " %";
+    }
+    $("tuse").disabled = !n;
+    $("thint").textContent = !n ? "Each comparison is chosen to learn your taste quickly. Most of the gain comes in the first 10 answers."
+      : n < 10 && !(r && r.p_best >= .5) ? "Keep going: each answer narrows down your settings."
+      : "Sounds right? Use your settings. More answers refine them.";
+    $("texport").hidden = !(engine === webEngine && webEngine.trials().length);
+    this.chart(s);
+    const d = $("eumdiag");                  // Details: the agent's trial and recommendation
+    d.hidden = !(n || s.active);
+    if (r && s.a) d.textContent = `Tune · ${n} answers · trial at SNR ${s.snr.toFixed(1)} dB: A θ ${fmt(s.a[0])}, floor ${fmt(s.a[1])} dB; ` +
+      `B θ ${fmt(s.b[0])}, floor ${fmt(s.b[1])} dB · recommended θ ${fmt(r.theta)} ± ${r.sd_theta.toFixed(1)}, floor ${fmt(r.floor)} ± ` +
+      `${r.sd_floor.toFixed(1)} dB, P(best) ${r.p_best.toFixed(2)}${s.active ? "" : " · not tuning"}`;
+  },
+  /* the recommendation after each answer (line) ± its spread (band): clean-up on top, background noise below */
+  chart(s) {
+    const svg = $("tchart"), W = svg.clientWidth, H = svg.clientHeight;
+    if (!W || !H) return;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const h = s.hist || [], N = Math.max(10, h.length), L = 26, R = 4, gap = 10, ph = (H - gap - 12) / 2;
+    const x = k => L + k / N * (W - L - R);
+    let g = "";
+    for (const [p, lo, hi, iv, isd, name] of [[0, -6, 12, 3, 5, "Clean-up"], [1, -35, 0, 4, 6, "Background noise"]]) {
+      const top = p * (ph + gap), y = v => top + (hi - Math.max(lo, Math.min(hi, v))) / (hi - lo) * ph;
+      g += `<line class="ax" x1="${L}" x2="${W - R}" y1="${top + ph}" y2="${top + ph}"/>`;
+      g += `<text x="${L - 4}" y="${top + 8}" text-anchor="end">${fmt(hi)}</text><text x="${L - 4}" y="${top + ph}" text-anchor="end">${fmt(lo)}</text>`;
+      g += `<text x="${L + 4}" y="${top + 8}">${name}</text>`;
+      if (h.length) {
+        let up = "", dn = "", ln = `M${x(0)},${y(p ? -20 : 3)}`;
+        h.forEach(e => { up += `L${x(e[0])},${y(e[iv] + e[isd])}`; dn = `L${x(e[0])},${y(e[iv] - e[isd])}` + dn; ln += `L${x(e[0])},${y(e[iv])}`; });
+        g += `<path class="bd" d="M${up.slice(1)}${dn}Z"/><path class="ln" d="${ln}"/>`;
+      }
+    }
+    g += `<text x="${L}" y="${H - 1}">0</text><text x="${W - R}" y="${H - 1}" text-anchor="end">${N} answers</text>`;
+    svg.innerHTML = g;
+  },
+};
+$("pa").onclick = () => tune.play("A");
+$("pb").onclick = () => tune.play("B");
+$("rbetter").onclick = () => tune.answer(1, "rbetter");
+$("rsame").onclick = () => tune.answer(0, "rsame");
+$("rworse").onclick = () => tune.answer(-1, "rworse");
+$("tuse").onclick = () => tune.call("apply").then(s => {
+  if (!s || !s.rec) return;
+  setView("listen");
+  toast(`Your settings are on: clean-up ${fmt(s.rec.theta)} dB, background noise ${fmt(s.rec.floor)} dB`);
+});
+$("trestart").onclick = () => { if (confirm("Forget your answers and start over?")) tune.call("reset"); };
+
+/* ---------- Offline: a WAV file through the same hearing aid, faster than real time, with the current θ and floor
+   (laptop: sem_live runs sem_offline; browser: offline.wasm; both demo/common/offline.c in double precision, as
+   code/09_c's ha_run). Played here (A/B), plotted as the live view, saved as a 16-bit WAV. ---------- */
+const OFF_COL = 66, OFF_CV = 4 + 4 * NB;       // blocks per 0.1 s column; values per column (offline.h)
+const bandHz = Array.from({ length: NB }, (_, b) => { const W = Math.PI * b / (NB - 1), a = 0.5;   // monitor.c
+  return (W - 2 * Math.atan(a * Math.sin(W) / (1 + a * Math.cos(W)))) * 16000 / (2 * Math.PI); });
+function parseWav(buf) {        // RIFF WAVE: PCM 8/16/24/32-bit or float 32/64-bit, any rate; channels averaged to mono
+  const v = new DataView(buf), id = o => String.fromCharCode(...new Uint8Array(buf, o, 4));
+  if (buf.byteLength < 12 || id(0) !== "RIFF" || id(8) !== "WAVE") throw new Error("not a WAV file");
+  let fmt = 0, ch = 0, fs = 0, bits = 0, data = -1, size = 0;
+  for (let o = 12; o + 8 <= buf.byteLength;) {
+    const n = v.getUint32(o + 4, true);
+    if (id(o) === "fmt ") {
+      fmt = v.getUint16(o + 8, true); ch = v.getUint16(o + 10, true); fs = v.getUint32(o + 12, true); bits = v.getUint16(o + 22, true);
+      if (fmt === 0xFFFE) fmt = v.getUint16(o + 32, true);                  // WAVE_FORMAT_EXTENSIBLE: subformat
+    } else if (id(o) === "data") { data = o + 8; size = Math.min(n, buf.byteLength - data); break; }
+    o += 8 + n + (n & 1);
+  }
+  const B = bits / 8, N = ch ? Math.floor(size / (B * ch)) : 0;
+  if (data < 0 || !N || !((fmt === 1 && [8, 16, 24, 32].includes(bits)) || (fmt === 3 && (bits === 32 || bits === 64))))
+    throw new Error("unsupported WAV format (PCM 8–32-bit or float)");
+  const rd = fmt === 3 ? (bits === 32 ? o => v.getFloat32(o, true) : o => v.getFloat64(o, true))
+    : bits === 8 ? o => (v.getUint8(o) - 128) / 128 : bits === 16 ? o => v.getInt16(o, true) / 32768
+    : bits === 24 ? o => (v.getUint8(o) | v.getUint8(o + 1) << 8 | v.getInt8(o + 2) << 16) / 8388608 : o => v.getInt32(o, true) / 2147483648;
+  const x = new Float32Array(N);
+  for (let i = 0; i < N; i++) { let a = 0; for (let c = 0; c < ch; c++) a += rd(data + (i * ch + c) * B); x[i] = ch === 1 ? a : a / ch; }
+  return { x, fs, ch, bits, fmt };
+}
+const ofl = {
+  x: null, fs: 16000, base: "", res: null, enh: true, pos: 0, busy: false, again: false, srcs: null, ac: null, lastc: -1,
+  ...store.get("semv2-offline", { cal: 0, same: 0, src: "current" }),
+  view(on, was) {
+    if (engine === webEngine) $("start").classList.toggle("show", !on && !webEngine.node && !webEngine.paused);
+    if (engine && on !== was) engine.mute(on);           // the microphone stops while the Offline view is open
+    $("curvehd").textContent = on ? "dots: the 17 bands at the playhead" : "dots: the 17 bands now";
+    if (!on) this.stop();
+    else { if (!$("oyax").childElementCount) { buildYax(bandHz, $("oyax")); buildGcol(bandHz, $("ogcol"), "o"); } this.opts(); this.show(true); }
+  },
+  opts() {
+    $("ocal").classList.toggle("right", this.cal === 1); $("olag").classList.toggle("right", this.same === 1);
+    if ($("oset")) $("oset").classList.toggle("right", this.src === "tune");
+    store.set("semv2-offline", { cal: this.cal, same: this.same, src: this.src });
+  },
+  opt(k, v) { if (this[k] === v) return; this[k] = v; this.opts(); this.run(); },
+  settings(s) {                  // the sliders: process again when θ or the floor changed (unless Tune chooses them)
+    const r = this.res;
+    if (r && this.src !== "tune" && (r.theta !== s.theta || r.floor !== s.floor) && !this.h)
+      this.h = setTimeout(() => { this.h = null; this.run(); }, 250);
+    if (this.master) this.master.gain.value = Math.pow(10, s.volume / 20);
+  },
+  async load(f) {
+    try {
+      const w = parseWav(await f.arrayBuffer());
+      this.stop(); this.x = w.x; this.fs = w.fs; this.base = f.name.replace(/\.[^.]*$/, ""); this.res = null; this.pos = 0;
+      $("oname").textContent = f.name;
+      $("ometa").textContent = `${(w.x.length / w.fs).toFixed(1)} s · ${w.fs / 1000} kHz${w.fs !== 16000 ? " → 16 kHz" : ""} · ` +
+        `${w.ch === 1 ? "mono" : w.ch + " channels → mono"} · ${w.bits}-bit${w.fmt === 3 ? " float" : ""} · ` +
+        (engine === liveEngine ? "processed by sem_live on this computer" : "processed in this browser");
+      await this.run();
+    } catch (err) { toast("Could not open the file: " + err.message); }
+  },
+  async run() {
+    if (!this.x || !engine) return;
+    if (this.busy) { this.again = true; return; }
+    this.busy = true; $("ostat").textContent = "Processing…";
+    try {
+      const o = { cal: this.cal, same: this.same, theta: st ? st.theta : 3, floor: st ? st.floor : -20 };
+      let r = await engine.offline(this.x, this.fs, o), how = "the current settings";
+      if (this.src === "tune" && engine.recommend) {      // demo 2: the end-user model's recommendation at the file's SNR
+        const p = await engine.recommend(r.snr);
+        how = `Tune’s recommendation at this file’s SNR estimate (${r.snr.toFixed(1)} dB)`;
+        if (p.theta !== o.theta || p.floor !== o.floor) { o.theta = p.theta; o.floor = p.floor; r = await engine.offline(this.x, this.fs, o); }
+      }
+      const nc = r.cols.length / OFF_CV, lv = (c, k) => r.cols[c * OFF_CV + 4 + 3 * NB + k], g = (c, k) => r.cols[c * OFF_CV + 4 + 2 * NB + k];
+      this.res = { ...r, ...o, nc, tune: this.src === "tune",
+        mapIn: Array.from({ length: nc }, (_, c) => Array.from({ length: NB }, (_, k) => lv(c, k))),
+        mapOut: Array.from({ length: nc }, (_, c) => Array.from({ length: NB }, (_, k) => lv(c, k) + g(c, k))) };
+      const ac = this.actx(), buf = d => { const b = ac.createBuffer(1, d.length, 16000); b.copyToChannel(Float32Array.from(d), 0); return b; };
+      this.bx = buf(r.x16); this.by = buf(r.y16);
+      const dur = r.n16 / 16000, lvl = isFinite(r.level) ? `active speech level ${fmt(r.level, 1)} dBFS` : "no speech activity found";
+      $("ocalv").textContent = !this.cal ? `offset 0 dB: the samples as they are · ${lvl}`
+        : `offset ${r.offset ? fmt(r.offset, 1) : "0"} dB · ${lvl}, ${!isFinite(r.level) ? "left as it is" : r.offset ? "moved into" : "inside"} ` +
+          `the training files’ range ${fmt(r.lo, 1)} to ${fmt(r.hi, 1)} dBFS`;
+      $("ostat").textContent = `θ ${fmt(o.theta, 1)} dB, floor ${fmt(o.floor)} dB (${how}) · ${dur.toFixed(1)} s processed in ` +
+        `${r.secs.toFixed(2)} s, ${Math.round(dur / Math.max(r.secs, 1e-3))}× real time`;
+      if (this.srcs) this.start(this.where()); else { this.pos = Math.min(this.pos, dur); this.show(true); }
+    } catch (err) { $("ostat").textContent = "Could not process the file: " + (err && err.message || err); }
+    this.busy = false;
+    if (this.again) { this.again = false; this.run(); }
+  },
+  actx() { if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)(); return this.ac; },
+  dur() { return this.res ? this.res.n16 / 16000 : 0; },
+  where() { return this.srcs ? Math.min(this.dur(), this.ac.currentTime - this.t0) : this.pos; },
+  start(at) {                    // both signals play in sync; A/B switches their gains
+    this.stopSrc();
+    const ac = this.actx(); ac.resume();
+    if (at >= this.dur() - 0.02) at = 0;
+    const m = this.master = ac.createGain(); m.gain.value = Math.pow(10, (st ? st.volume : 0) / 20); m.connect(ac.destination);
+    this.srcs = [this.bx, this.by].map((b, k) => {
+      const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = b; g.gain.value = (k === 1) === this.enh ? 1 : 0;
+      s.connect(g).connect(m); s.start(0, at); return { s, g };
+    });
+    const mine = this.srcs;
+    mine[0].s.onended = () => { if (this.srcs === mine) { this.stopSrc(); this.pos = 0; this.show(true); } };
+    this.t0 = ac.currentTime - at; this.tick();
+  },
+  stopSrc() {
+    const s = this.srcs; this.srcs = null; cancelAnimationFrame(this.raf);
+    if (s) s.forEach(o => { try { o.s.stop(); } catch (e) {} });
+    if (this.master) { this.master.disconnect(); this.master = null; }
+  },
+  stop() { if (this.srcs) this.pos = this.where(); this.stopSrc(); this.show(); },
+  toggle() { if (this.srcs) this.stop(); else if (this.res) this.start(this.pos); },
+  seek(t) { this.pos = Math.max(0, Math.min(this.dur(), t)); if (this.srcs) this.start(this.pos); else this.show(); },
+  ab(e) {
+    this.enh = e;
+    if (this.srcs) this.srcs.forEach((o, k) => o.g.gain.setTargetAtTime((k === 1) === e ? 1 : 0, this.ac.currentTime, 0.005));
+    this.show(true);
+  },
+  tick() { this.show(); if (this.srcs) this.raf = requestAnimationFrame(() => this.tick()); },
+  show(force) {                  // the playhead's column: stats, gains, curve dots, spectrogram mark
+    const r = this.res, t = this.where();
+    $("oplayi").setAttribute("d", this.srcs ? "M6 4h4v16H6zM14 4h4v16h-4z" : "M7 4.5v15l13-7.5z");
+    $("oplay").disabled = !r; $("osave").disabled = !r;
+    $("oseg").classList.toggle("right", !this.enh);
+    $("ospechd").textContent = this.enh ? "Enhanced output" : "Original input";
+    $("otime").textContent = `${t.toFixed(1)} / ${this.dur().toFixed(1)} s`;
+    $("oend").textContent = r ? this.dur().toFixed(1) + " s" : "–";
+    if (!this.dragging) { $("opos").value = r ? Math.round(1000 * t / this.dur()) : 0; fill($("opos")); }
+    if (!r || !document.body.classList.contains("offline")) return;
+    const c = Math.max(0, Math.min(r.nc - 1, Math.floor(t * 10))), at = k => r.cols[c * OFF_CV + k];
+    const band = k => Array.from(r.cols.subarray(c * OFF_CV + 4 + k * NB, c * OFF_CV + 4 + (k + 1) * NB));
+    const xi = band(0), g = band(2);
+    $("osnr").firstChild.nodeValue = at(0).toFixed(1);
+    $("opres").firstChild.nodeValue = Math.round(100 * at(1));
+    $("olvl").firstChild.nodeValue = at(2) > -120 ? Math.max(-99, at(2)).toFixed(0) : "–";
+    $("olvlbar").style.width = Math.max(0, Math.min(100, (at(2) + 60) / 60 * 100)) + "%";
+    for (let b = 0; b < NB; b++) {
+      $("ob" + b).style.width = Math.min(100, Math.max(0, -g[b] / 40 * 100)) + "%";
+      $("ov" + b).textContent = Math.round(g[b]) === 0 ? "0" : "−" + Math.abs(Math.round(g[b]));
+    }
+    $("ogcol").style.opacity = this.enh ? 1 : .45;
+    drawCurve({ theta: r.theta, floor: r.floor, xi, enhance: this.enh });
+    if (force || c !== this.lastc) { this.lastc = c; this.paint(); }
+  },
+  paint() {
+    const r = this.res;
+    if (!r || !document.body.classList.contains("offline")) return;
+    paintMap($("omap"), this.enh ? r.mapOut : r.mapIn, r.nc, Math.max(0, this.lastc));
+  },
+  save() {                       // 16 kHz 16-bit; the name records the settings
+    const r = this.res;
+    if (!r) return;
+    const f = v => (v > 0 ? "+" : v < 0 ? "-" : "") + String(Math.round(Math.abs(v) * 10) / 10);
+    const name = `${this.base}_semv2_theta${f(r.theta)}_floor${f(r.floor)}_${r.same ? "same" : "prev"}block_` +
+                 `${r.cal ? "calfile" + f(r.offset) + "dB" : "calpaper"}${r.tune ? "_tune" : ""}.wav`;
+    download(wav16(r.y16), name); toast("Saved " + name);
+  },
+};
+$("opick").onclick = () => $("ofile").click();
+$("ofile").onchange = e => { const f = e.target.files[0]; if (f) ofl.load(f); e.target.value = ""; };
+$("ostage").addEventListener("dragover", e => e.preventDefault());
+$("ostage").addEventListener("drop", e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) ofl.load(f); });
+$("oon").onclick = () => ofl.ab(true);
+$("ooff").onclick = () => ofl.ab(false);
+$("oplay").onclick = () => ofl.toggle();
+$("opos").addEventListener("input", () => { ofl.dragging = true; fill($("opos")); });
+$("opos").addEventListener("change", () => { ofl.dragging = false; ofl.seek($("opos").value / 1000 * ofl.dur()); });
+$("omap").onclick = e => { const b = $("omap").getBoundingClientRect(); ofl.seek((e.clientX - b.left) / b.width * ofl.dur()); if (!ofl.srcs && ofl.res) ofl.start(ofl.pos); };
+$("ocal0").onclick = () => ofl.opt("cal", 0);
+$("ocal1").onclick = () => ofl.opt("cal", 1);
+$("olag0").onclick = () => ofl.opt("same", 0);
+$("olag1").onclick = () => ofl.opt("same", 1);
+$("osave").onclick = () => ofl.save();
+$("gofile").onclick = () => setView("offline");
+$("oset0").onclick = () => ofl.opt("src", "current");
+$("oset1").onclick = () => ofl.opt("src", "tune");
+
+/* ---------- which engine ---------- */
+(async () => {
+  let live = false;
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 1500);
+    const r = await fetch("/state", { cache: "no-store", signal: ctl.signal });
+    live = r.ok && "theta" in await r.json();
+  } catch (e) {}
+  engine = live ? liveEngine : webEngine;
+  if (!live) render(webEngine.compose(null));
+  engine.start();
+  if (document.body.classList.contains("offline")) ofl.view(true, false);
+  if (live && document.body.classList.contains("tune")) tune.enter();
+  else if (live) tune.call("").then(s => s && s.active && tune.leave());   // a Tune page closed mid-trial: restore
+})();
+</script>
+</body>
+</html>
