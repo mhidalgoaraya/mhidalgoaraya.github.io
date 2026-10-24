@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marco Hidalgo</title>
+<meta name="description" content="Case studies in probabilistic engineering: models that report how sure they are, explain where they are wrong, and run on small devices.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="name" href="./">Marco Hidalgo</a>
+    <nav class="menu" aria-label="Main">
+      <a href="./" aria-current="page">Blog</a>
+      <a href="about.html">About</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="intro">
+    <h1 class="display">Models that know how <em>sure</em> they are.</h1>
+    <p class="lede">Case studies in building small, explainable models for machines and devices: how they work, what they cost to run, and what they can and cannot do. Each one comes with a demo you can try.</p>
+  </section>
+
+  <section class="prose" style="margin-bottom:4rem;max-width:44rem">
+    <h2 style="margin-top:0">Why this matters</h2>
+    <p>Industry has run many AI pilots and deployed few of them. In manufacturing and medical technology the blocker is rarely accuracy. It is trust. Errors are expensive, behaviour has to be explained to a plant manager, an auditor or a regulator, and the system has to keep working when conditions drift.</p>
+    <p>The models in these case studies are built for that situation. They start from what engineers already know about a system, state their assumptions in plain terms, report how sure they are, and run on the hardware that is already there.</p>
+    <h3>Two layers</h3>
+    <ul>
+      <li><strong>Estimation and monitoring.</strong> Tracking the state of a machine, a process or a patient, identifying how a system behaves, and flagging faults, each with an honest error bar.</li>
+      <li><strong>An agent that reduces uncertainty.</strong> On top of a trusted model: deciding what to measure next, when to recalibrate, and when to ask an operator, so that its uncertainty about the physical system goes down within stated limits. This is a different kind of agent from a chatbot. It acts on a model of your system, not on plausible text.</li>
+    </ul>
+  </section>
+
+  <ul class="posts" aria-label="Posts">
+    <li>
+      <a href="posts/probabilistic-speech-enhancement/">
+        <span class="kind">Case study</span>
+        <div><h2>A hearing aid that knows what it does not know</h2><p>Removing background noise in real time with about 160 numbers, trained only on clean speech. With a demo that runs in your browser.</p></div>
+        <span class="date">Oct 2026</span>
+      </a>
+    </li>
+    <li class="soon" aria-disabled="true">
+      <span class="kind">Case study</span>
+      <div><h2>Forecasting a machine from its physics</h2><p>Two water tanks, one sensor, and a forecast that states its own error bars. Coming soon.</p></div>
+      <span class="date">Upcoming</span>
+    </li>
+    <li class="soon" aria-disabled="true">
+      <span class="kind">Case study</span>
+      <div><h2>Glitch or real change?</h2><p>How a tracker can tell a faulty reading from a real shift, without a hand-tuned threshold. Coming soon.</p></div>
+      <span class="date">Upcoming</span>
+    </li>
+  </ul>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Marco Hidalgo-Araya · Eindhoven</span>
+    <span>Probabilistic models solved by message passing</span>
+  </div>
+</footer>
+</body>
+</html>

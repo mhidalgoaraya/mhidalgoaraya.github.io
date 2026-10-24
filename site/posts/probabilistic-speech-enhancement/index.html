@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A hearing aid that knows what it does not know · Marco Hidalgo</title>
+<meta name="description" content="Case study: real-time speech enhancement with a small probabilistic model of about 160 parameters, trained only on clean speech, running within 2.8 ms on a hearing-aid-class processor.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="name" href="../../">Marco Hidalgo</a>
+    <nav class="menu" aria-label="Main">
+      <a href="../../">Blog</a>
+      <a href="../../about.html">About</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap article">
+  <header>
+    <div class="meta"><span>Case study</span><span>October 2026</span><span>8 min read</span></div>
+    <h1>A hearing aid that knows what it does not know</h1>
+    <p class="lede">Removing background noise in real time with about 160 numbers, trained only on clean speech, on a processor the size of a fingernail.</p>
+  </header>
+
+  <div class="prose">
+    <p class="summary">A small probabilistic model removes background noise from speech in real time. It delays the sound by at most 2.8 milliseconds, needs about 90 million instructions per second on a low-power Arm Cortex-M4F processor, and was never trained on noisy recordings. Deep networks still sound better on this benchmark. This model trades some of that quality for latency, cost, and a design you can read line by line.</p>
+
+    <h2>The problem</h2>
+    <p>People with hearing loss struggle most in noise: a restaurant, a train station, a family dinner. A hearing aid has to separate the voice from the background, and it has to do it under three hard limits.</p>
+    <ul>
+      <li><strong>Delay.</strong> If the processed sound arrives more than a few milliseconds after the sound that leaks around the earpiece, the wearer hears an echo. Most noise-reduction networks wait 20 to 40 ms.</li>
+      <li><strong>Power.</strong> The processor runs on a tiny battery for a whole day. Every million instructions per second costs battery life.</li>
+      <li><strong>Trust.</strong> A medical device has to be explained to a regulator and to the audiologist who fits it. A network with millions of learned weights is hard to explain.</li>
+    </ul>
+
+    <h2>Why uncertainty matters</h2>
+    <p>At every moment, in every frequency band, the device has to decide: is this sound mostly speech, or mostly noise? Sometimes the answer is clear. Often it is not: a soft consonant under a clatter of plates.</p>
+    <p>A typical neural network answers with one number and the same confidence either way. A probabilistic model keeps track of how sure it is. When the evidence is weak, it holds back instead of cutting speech or letting noise through at full strength. That one difference, knowing what you do not know, decides how natural the result sounds and how predictably the device behaves in situations it has never met.</p>
+
+    <h2>The approach: describe the sound, then reason about it</h2>
+    <p>Instead of learning a mapping from noisy to clean audio from millions of examples, the model starts from a description of how sound behaves:</p>
+    <ul>
+      <li>speech has phases: it starts, sustains, fades and pauses, each with its own typical dynamics;</li>
+      <li>background noise changes more slowly than speech;</li>
+      <li>in each frequency band, either speech or noise dominates the sound you hear.</li>
+    </ul>
+    <p>These statements become a small generative model: a set of probability rules that could produce noisy speech. The only things learned from data are the speech dynamics, from 24 clean recordings. There is no noisy-to-clean training at all.</p>
+    <p>Enhancing the sound is then a question of inference: given what the microphone hears, what is the most plausible speech underneath, and how sure are we? The model answers it with <strong>message passing</strong>: each part of the model sends short summaries (messages) to its neighbours, and the beliefs about speech and noise are updated every 1.5 milliseconds, in 17 frequency bands.</p>
+
+    <figure class="fig wide">
+      <div class="graph-scroll">
+        <svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A chain of estimates over time. Each estimate receives a prediction from the past and a message from the new measurement.">
+          <g>
+            <line class="g-edge" x1="110" y1="110" x2="250" y2="110"/><line class="g-edge" x1="290" y1="110" x2="430" y2="110"/>
+            <line class="g-edge" x1="470" y1="110" x2="610" y2="110"/><line class="g-edge" x1="650" y1="110" x2="790" y2="110"/>
+            <line class="g-edge" x1="90" y1="130" x2="90" y2="215"/><line class="g-edge" x1="270" y1="130" x2="270" y2="215"/>
+            <line class="g-edge" x1="450" y1="130" x2="450" y2="215"/><line class="g-edge" x1="630" y1="130" x2="630" y2="215"/>
+            <line class="g-edge" x1="810" y1="130" x2="810" y2="215"/>
+          </g>
+          <g>
+            <rect class="g-fac" x="167" y="97" width="26" height="26"/><rect class="g-fac" x="347" y="97" width="26" height="26"/>
+            <rect class="g-fac" x="527" y="97" width="26" height="26"/><rect class="g-fac" x="707" y="97" width="26" height="26"/>
+            <rect class="g-fac" x="77" y="160" width="26" height="26"/><rect class="g-fac" x="257" y="160" width="26" height="26"/>
+            <rect class="g-fac" x="437" y="160" width="26" height="26"/><rect class="g-fac" x="617" y="160" width="26" height="26"/>
+            <rect class="g-fac" x="797" y="160" width="26" height="26"/>
+            <circle class="g-var" cx="90" cy="110" r="20"/><circle class="g-var" cx="270" cy="110" r="20"/>
+            <circle class="g-var" cx="450" cy="110" r="20"/><circle class="g-var" cx="630" cy="110" r="20"/>
+            <circle class="g-var" cx="810" cy="110" r="20"/>
+            <rect class="g-obs" x="85" y="210" width="10" height="10"/><rect class="g-obs" x="265" y="210" width="10" height="10"/>
+            <rect class="g-obs" x="445" y="210" width="10" height="10"/><rect class="g-obs" x="625" y="210" width="10" height="10"/>
+            <rect class="g-obs" x="805" y="210" width="10" height="10"/>
+            <circle class="g-msg" cx="215" cy="110" r="5"/><circle class="g-msg" cx="450" cy="148" r="5"/>
+            <text class="g-var-lbl" x="90" y="115" text-anchor="middle">t₁</text><text class="g-var-lbl" x="270" y="115" text-anchor="middle">t₂</text>
+            <text class="g-var-lbl" x="450" y="115" text-anchor="middle">t₃</text><text class="g-var-lbl" x="630" y="115" text-anchor="middle">t₄</text>
+            <text class="g-var-lbl" x="810" y="115" text-anchor="middle">t₅</text>
+            <text class="g-lbl" x="180" y="80" text-anchor="middle">how speech evolves</text>
+            <text class="g-lbl" x="520" y="178">what the microphone says</text>
+            <text class="g-lbl" x="450" y="244" text-anchor="middle">measured sound, one value per band every 1.5 ms</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>The model as a factor graph. Circles are the beliefs about speech and noise at each moment; squares are the rules that connect them. Messages (dots) carry the prediction forward in time and the evidence up from each new measurement.</figcaption>
+    </figure>
+
+    <p>One refinement makes it robust. Each piece of evidence gets an inferred weight, a kind of trust level, through a technique called <strong>tempered message passing</strong>. When the model is unsure which explanation is right, it does not commit too early. In the previous version of this model a hand-tuned override did that job; here it comes out of the inference itself.</p>
+
+    <h2>What it achieves</h2>
+    <p>The test is a standard public benchmark, VoiceBank+DEMAND: 824 noisy recordings, with five kinds of background noise at four noise levels. Speech quality is measured with PESQ, a score from 1 (bad) to about 4.5 (clean). Only causal methods are compared, that is, methods that do not look into the future.</p>
+
+    <div class="table-wrap wide">
+      <table>
+        <thead><tr><th>Method</th><th>Trained on</th><th>Delay</th><th>Size</th><th>PESQ</th></tr></thead>
+        <tbody>
+          <tr><td>LaCo-SENet (2026)</td><td>noisy/clean pairs</td><td>25 ms</td><td>1.37 M weights</td><td>3.35</td></tr>
+          <tr><td>DEMUCS, causal (2020)</td><td>noisy/clean pairs</td><td>40 ms</td><td>not stated</td><td>2.93</td></tr>
+          <tr><td>SEMamba, causal (2024)</td><td>noisy/clean pairs</td><td>not stated</td><td>3.6 M weights</td><td>2.76</td></tr>
+          <tr class="ours"><td>This model</td><td>clean speech only</td><td>≤ 2.8 ms</td><td>≈ 160 parameters</td><td>2.58</td></tr>
+          <tr><td>MMSE-LSA (classical, 1985)</td><td>none</td><td>20 ms</td><td>0</td><td>2.38</td></tr>
+          <tr><td>RNNoise (2018)</td><td>other corpora</td><td>20 ms</td><td>≈ 60 k weights</td><td>2.33</td></tr>
+          <tr><td>Wiener filter (classical)</td><td>none</td><td>20 ms</td><td>0</td><td>2.22</td></tr>
+          <tr><td>Previous version (SEM)</td><td>none</td><td>4.3 ms</td><td>85 parameters</td><td>2.17</td></tr>
+          <tr><td>No processing</td><td>—</td><td>—</td><td>—</td><td>1.96</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">Other methods as reported in their papers. Our result: mean over the 824 test files. If each block waits for its own gains (4.3 ms delay instead of 2.8 ms), PESQ is 2.61.</p>
+
+    <p>What the numbers mean in practice:</p>
+    <ul>
+      <li><strong>20 % better than the previous version</strong> at the same delay, and better than the classical methods and RNNoise, a widely used lightweight network.</li>
+      <li><strong>Deep networks still sound better</strong>, by 0.2 to 0.8 PESQ. They delay the sound 9 to 14 times longer, use thousands of times more weights, and need large sets of paired noisy and clean recordings.</li>
+      <li><strong>It fits the device.</strong> The C implementation reproduces the result exactly and runs at about 90 million instructions per second on an Arm Cortex-M4F, 12 times fewer than RNNoise on the same processor, with 17 kB of code, 8.3 kB of parameters and 6 kB of working memory.</li>
+    </ul>
+
+    <div class="callout">
+      <h3>Try it yourself</h3>
+      <p>The demo runs the same C code in your browser, compiled to WebAssembly. Load a recording, compare the original and the enhanced version, change the settings, and watch the model's beliefs per frequency band. Nothing is uploaded: all processing happens on your computer.</p>
+      <a class="btn" href="../../demos/sem/?view=offline">Open the demo</a>
+    </div>
+
+    <h2>What this means for a product team</h2>
+    <ul>
+      <li><strong>Little data.</strong> The model needs a few clean recordings, not a large paired corpus. That matters when recordings are expensive, private or specific to one device.</li>
+      <li><strong>Readable assumptions.</strong> Every rule in the model is stated in plain terms (speech has phases, noise is slower), so it can be reviewed, questioned and documented for certification.</li>
+      <li><strong>Predictable cost.</strong> The work per block is fixed and small, so battery and processor budgets can be planned up front.</li>
+      <li><strong>Room to grow.</strong> New knowledge enters as a new rule, not as a retraining run. The same machinery can track a listener's preferences: a second model learns preferred settings from simple A/B choices, as shown in the demo's Tune view.</li>
+    </ul>
+
+    <h2>What it does not do</h2>
+    <p>It does not beat the best deep networks on average sound quality on this benchmark, and it was evaluated on one benchmark of short recordings. The gap is a design choice: a few milliseconds of delay, a few hundred numbers, and no paired training data. For devices where those limits are fixed, it is the right trade. Where they are not, a network is often the better tool.</p>
+
+    <h2>Technical details</h2>
+    <p>The model is a hierarchical switching state-space model on a 17-band warped filter bank, inferred with tempered variational message passing in RxInfer. A paper describing it is in preparation. The previous version is published as a probabilistic generative model for spectral speech enhancement.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Marco Hidalgo-Araya · Eindhoven</span>
+    <span>Probabilistic models solved by message passing</span>
+  </div>
+</footer>
+</body>
+</html>
